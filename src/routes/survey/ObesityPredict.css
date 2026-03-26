@@ -1,3 +1,6 @@
+.border-red-500 {
+  border-color: #ef4444 !important;
+}
 
 .obesity-card {
   width: 100%;
@@ -234,4 +237,9 @@
   .predict-btn {
     width: 100%;
   }
+}
+
+.error-border {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 1px #ef4444 !important;
 }

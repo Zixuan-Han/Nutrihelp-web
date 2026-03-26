@@ -25,6 +25,9 @@ import {
   Bot,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { validateEmail, ERROR_MESSAGES } from "../../utils/validationRules";
+import FieldError from "../../components/FieldError";
+import { toast } from "react-toastify";
 
 const Home = () => {
   const { currentUser } = useContext(UserContext);
@@ -83,13 +86,30 @@ const Home = () => {
     message: "",
   });
 
+  const [contactErrors, setContactErrors] = useState({});
+  const [contactTouched, setContactTouched] = useState({});
+
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    fetch("http://localhost:80/api/contactus", {
+    // Validate
+    const err = {};
+    if (!formData.name.trim()) err.name = ERROR_MESSAGES.REQUIRED;
+    const emailErr = validateEmail(formData.email);
+    if (emailErr) err.email = emailErr;
+    if (!formData.subject.trim()) err.subject = ERROR_MESSAGES.REQUIRED;
+    if (!formData.message.trim()) err.message = ERROR_MESSAGES.REQUIRED;
+
+    if (Object.keys(err).length > 0) {
+      setContactErrors(err);
+      setContactTouched({ name: true, email: true, subject: true, message: true });
+      return;
+    }
+
+    fetch("http://localhost:8080/api/contactus", {
       method: "POST",
       body: JSON.stringify(formData),
       headers: {
@@ -98,23 +118,33 @@ const Home = () => {
       },
     })
       .then((response) => {
-        console.log(response);
-        alert("Message sent successfully!");
+        if (!response.ok) throw new Error("Failed to send message");
+        toast.success("Message sent successfully!");
         setFormData({ name: "", email: "", subject: "", message: "" });
+        setContactErrors({});
+        setContactTouched({});
       })
       .catch((error) => {
         console.error("Error sending message:", error);
-        alert("Failed to send message. Please try again later.");
+        toast.error("Failed to send message. Please try again later.");
       });
   };
 
   const [subscriptEmail, setSubscriptEmail] = useState("");
+  const [newsletterError, setNewsletterError] = useState("");
+  const [newsletterTouched, setNewsletterTouched] = useState(false);
 
   const handleSubscribe = async (e) => {
     e.preventDefault();
-    console.log(e.target.name, e.target.value);
 
-    fetch("http://localhost/api/home/subscribe", {
+    const emailErr = validateEmail(subscriptEmail);
+    if (emailErr) {
+      setNewsletterError(emailErr);
+      setNewsletterTouched(true);
+      return;
+    }
+
+    fetch("http://localhost:8080/api/home/subscribe", {
       method: "POST",
       body: JSON.stringify({ email: subscriptEmail }),
       headers: {
@@ -122,15 +152,17 @@ const Home = () => {
         "Content-Type": "application/json",
       },
     })
-    .then((response) => {
-      console.log(response);
-      alert("Subscribe successfully!");
-      setSubscriptEmail("");
-    })
-    .catch((error) => {
-      console.error("Error Subscribe message:", error);
-      alert("Failed to Subscribe. Please try again later.");
-    });
+      .then((response) => {
+        if (!response.ok) throw new Error("Failed to Subscribe");
+        toast.success("Subscribed successfully!");
+        setSubscriptEmail("");
+        setNewsletterError("");
+        setNewsletterTouched(false);
+      })
+      .catch((error) => {
+        console.error("Error Subscribe message:", error);
+        toast.error("Failed to Subscribe. Please try again later.");
+      });
   };
 
   const onGetStarted = () => {
@@ -382,8 +414,10 @@ const Home = () => {
                   placeholder="Your Name"
                   value={formData.name}
                   onChange={handleChange}
-                  required
+                  onBlur={() => setContactTouched(prev => ({ ...prev, name: true }))}
+                  style={{ borderColor: contactErrors.name && contactTouched.name ? 'red' : '' }}
                 />
+                <FieldError error={contactErrors.name} touched={contactTouched.name} />
 
                 <label className="sr-only" htmlFor="email">Your Email</label>
                 <input
@@ -393,8 +427,10 @@ const Home = () => {
                   placeholder="Your Email"
                   value={formData.email}
                   onChange={handleChange}
-                  required
+                  onBlur={() => setContactTouched(prev => ({ ...prev, email: true }))}
+                  style={{ borderColor: contactErrors.email && contactTouched.email ? 'red' : '' }}
                 />
+                <FieldError error={contactErrors.email} touched={contactTouched.email} />
 
                 <label className="sr-only" htmlFor="subject">Subject</label>
                 <input
@@ -404,8 +440,10 @@ const Home = () => {
                   placeholder="Subject"
                   value={formData.subject}
                   onChange={handleChange}
-                  required
+                  onBlur={() => setContactTouched(prev => ({ ...prev, subject: true }))}
+                  style={{ borderColor: contactErrors.subject && contactTouched.subject ? 'red' : '' }}
                 />
+                <FieldError error={contactErrors.subject} touched={contactTouched.subject} />
 
                 <label className="sr-only" htmlFor="message">Message</label>
                 <textarea
@@ -415,8 +453,10 @@ const Home = () => {
                   placeholder="Message"
                   value={formData.message}
                   onChange={handleChange}
-                  required
+                  onBlur={() => setContactTouched(prev => ({ ...prev, message: true }))}
+                  style={{ borderColor: contactErrors.message && contactTouched.message ? 'red' : '' }}
                 />
+                <FieldError error={contactErrors.message} touched={contactTouched.message} />
 
                 <button type="submit" className="btn-primary btn-full">
                   Submit
@@ -460,7 +500,19 @@ const Home = () => {
               <p>Stay updated with our latest news and insights.</p>
               <form onSubmit={handleSubscribe} className="newsletter-form">
                 <label className="sr-only" htmlFor="newsletterEmail">Email</label>
-                <input id="newsletterEmail" type="email" placeholder="Enter your email" value={subscriptEmail} onChange={(e)=>{setSubscriptEmail(e.target.value)}}/>
+                <input
+                  id="newsletterEmail"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={subscriptEmail}
+                  onChange={(e) => {
+                    setSubscriptEmail(e.target.value);
+                    setNewsletterError("");
+                  }}
+                  onBlur={() => setNewsletterTouched(true)}
+                  style={{ borderColor: newsletterError && newsletterTouched ? 'red' : '' }}
+                />
+                <FieldError error={newsletterError} touched={newsletterTouched} />
                 <button type="submit" className="btn-primary">
                   Subscribe
                 </button>

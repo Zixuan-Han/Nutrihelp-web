@@ -1,7 +1,10 @@
 @import url("../../UiTimer/UiTimer.css");
 
 /* Ensure html and body fill viewport for this page */
-html, body, #root, .App {
+html,
+body,
+#root,
+.App {
   min-height: 100%;
 }
 
@@ -20,7 +23,7 @@ html, body, #root, .App {
 }
 
 /* Ensure all direct children take full width */
-.scan-products-page > * {
+.scan-products-page>* {
   width: 100%;
   max-width: 900px;
 }
@@ -32,9 +35,9 @@ html, body, #root, .App {
   width: 100%;
   max-width: 100%;
 }
- 
- /* Svan button selector */
- .scan-button-selector{
+
+/* Svan button selector */
+.scan-button-selector {
   background-color: var(--card-background);
   color: var(--text-primary);
   border: 4px solid var(--primary-color);
@@ -46,11 +49,12 @@ html, body, #root, .App {
   font-size: 1.06rem;
   font-weight: 900;
   transition: transform .06s ease, box-shadow .18s ease, filter .18s ease;
- }
-.scan-button-selector:focus{
+}
+
+.scan-button-selector:focus {
   background-color: var(--primary-dark);
   color: var(--text-inverse);
- }
+}
 
 .scan-products-container {
   max-width: 900px;
@@ -66,8 +70,8 @@ html, body, #root, .App {
   box-sizing: border-box;
   flex-shrink: 0;
 }
- 
- 
+
+
 .scanned-products-heading,
 .scan-products-container h1,
 .scan-products-container h2 {
@@ -78,6 +82,7 @@ html, body, #root, .App {
   padding: 1rem;
   text-shadow: none;
 }
+
 /* .scanHead{
   text-align: left;
   width: 900px;
@@ -88,31 +93,31 @@ html, body, #root, .App {
   text-shadow: 0 1px 0 #fff;
   margin: 20px auto !important;
 } */
- 
- 
+
+
 .scan-products-segment {
   display: flex;
   flex-direction: column;
   gap: 22px;
 }
- 
- 
+
+
 .scan-products-form {
   display: flex;
   flex-direction: column;
   padding: 1rem;
 }
- 
- 
+
+
 .scan-products-label {
   font-size: 1.5rem;
   margin: 16px 0px;
   font-weight: 800;
   color: var(--text-secondary);
 }
- 
- 
- 
+
+
+
 .upload-section {
   display: flex;
   justify-content: center;
@@ -126,38 +131,44 @@ html, body, #root, .App {
   text-align: center;
   transition: border-color .18s ease, box-shadow .18s ease, background .18s ease, transform .06s ease;
 }
+
 .upload-section:hover {
   border-color: var(--primary-dark);
   background: var(--card-background);
-  box-shadow: 0 0 0 4px rgba(124,58,237,.12);
+  box-shadow: 0 0 0 4px rgba(124, 58, 237, .12);
   transform: translateY(-1px);
 }
- 
-.upload-section input[type="file"] { display: none; }
-.scan-products-container input{
+
+.upload-section input[type="file"] {
+  display: none;
+}
+
+.scan-products-container input {
   background-color: var(--input-background);
   border: 1px solid var(--border-color);
-  width:100%;
+  width: 100%;
   padding: 1rem;
   border-radius: 10px;
   margin: 10px auto;
   color: var(--text-primary);
 }
-.upload-section p{
+
+.upload-section p {
   font-size: 1.2rem !important;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 10px 18px;
   font-weight: 800;
   color: var(--primary-color) !important;
   cursor: pointer;
 }
+
 .upload-section label[for="file-upload"]:hover {
   filter: brightness(1.03);
-  box-shadow: 0 10px 20px rgba(124,58,237,.18);
+  box-shadow: 0 10px 20px rgba(124, 58, 237, .18);
 }
- 
+
 .upload-button {
   width: 100%;
   background: var(--success-color);
@@ -171,12 +182,13 @@ html, body, #root, .App {
   box-shadow: var(--card-shadow);
   transition: transform .06s ease, box-shadow .18s ease, filter .18s ease;
 }
+
 .upload-button:hover {
   filter: brightness(1.02);
   background-color: var(--success-dark);
   transform: translateY(-1px);
 }
- 
+
 .view-history-button {
   position: fixed;
   bottom: 24px;
@@ -191,33 +203,47 @@ html, body, #root, .App {
   box-shadow: var(--card-shadow);
   z-index: 100;
 }
+
 .view-history-button:hover {
   filter: brightness(1.03);
   box-shadow: var(--card-shadow-hover);
   background: var(--hover-background);
 }
- 
-@media (max-width: 780px){
+
+@media (max-width: 780px) {
   .scan-products-page {
     padding: 1rem 0.5rem 100px 0.5rem;
   }
-  .scan-products-page > * {
+
+  .scan-products-page>* {
     max-width: 100%;
   }
-  .scan-products-container { 
-    padding: 28px 20px; 
+
+  .scan-products-container {
+    padding: 28px 20px;
     margin: 0;
     width: 100%;
     border-radius: 12px;
   }
-  .scan-products-form { grid-template-columns: 1fr; }
-  .scan-products-label { font-size: .96rem; }
+
+  .scan-products-form {
+    grid-template-columns: 1fr;
+  }
+
+  .scan-products-label {
+    font-size: .96rem;
+  }
+
   .upload-section {
     min-height: 15rem;
   }
 }
- 
+
 .scan-products-container {
   padding-top: 28px;
 }
- 
+
+.error-border {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 1px #ef4444 !important;
+}

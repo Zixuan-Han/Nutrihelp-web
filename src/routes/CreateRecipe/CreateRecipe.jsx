@@ -12,8 +12,11 @@ import {
   ingredientListDB,
   cookingMethodListDB,
 } from '../../services/recepieApi.js';
-import { recipeApi} from '../../services/recepieApi.js';
+import { recipeApi } from '../../services/recepieApi.js';
 import { UserContext } from "../../context/user.context.jsx";
+import { ERROR_MESSAGES, validatePositiveNumber } from "../../utils/validationRules";
+import FieldError from "../../components/FieldError";
+import { toast } from "react-toastify";
 
 // Create Recipe page
 function CreateRecipe() {
@@ -46,6 +49,8 @@ function CreateRecipe() {
   const [showIngredients, setShowIngredients] = useState(true);
 
   const [ingredients, setIngredients] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
 
   //==================== Handle changes to the fields ====================
 
@@ -55,6 +60,10 @@ function CreateRecipe() {
       ...prev,
       [field]: value,
     }));
+    // Clear error on change
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
   };
 
   // Replace the previous top-level fetch calls with local state + effect
@@ -118,6 +127,20 @@ function CreateRecipe() {
 
   const handelIngredientsInTable = () => {
     const { ingredientCategory, ingredient, ingredientQuantity } = formData;
+
+    // Validate ingredient fields before adding
+    const ingErrors = {};
+    if (!ingredientCategory) ingErrors.ingredientCategory = ERROR_MESSAGES.REQUIRED;
+    if (!ingredient) ingErrors.ingredient = ERROR_MESSAGES.REQUIRED;
+    const qtyErr = validatePositiveNumber(ingredientQuantity);
+    if (qtyErr) ingErrors.ingredientQuantity = qtyErr;
+
+    if (Object.keys(ingErrors).length > 0) {
+      setErrors(prev => ({ ...prev, ...ingErrors }));
+      setTouched(prev => ({ ...prev, ingredientCategory: true, ingredient: true, ingredientQuantity: true }));
+      return;
+    }
+
     setIngredients((prev) => [
       ...prev,
       { ingredientCategory, ingredient, ingredientQuantity },
@@ -132,6 +155,19 @@ function CreateRecipe() {
       ingredient: "",
       ingredientQuantity: "",
     }));
+    // Clear ingredient related errors
+    setErrors(prev => ({
+      ...prev,
+      ingredientCategory: undefined,
+      ingredient: undefined,
+      ingredientQuantity: undefined
+    }));
+    setTouched(prev => ({
+      ...prev,
+      ingredientCategory: false,
+      ingredient: false,
+      ingredientQuantity: false
+    }));
   };
 
   const handleRemoveTableData = (index) => {
@@ -144,15 +180,27 @@ function CreateRecipe() {
     event.preventDefault();
 
     try {
-      const file = fileInputRef.current.files[0];
-
-      if (!isFormValid()) {
+      const validationErrors = validateForm();
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
         setAttemptedSubmit(true);
+
+        // Focus first error
+        const firstErrorKey = Object.keys(validationErrors)[0];
+        const element = document.getElementsByName(firstErrorKey)[0];
+        if (element) {
+          element.focus();
+        }
+
         window.scrollTo(0, 0);
+        toast.error("Please fix the errors in the form.");
         return;
       }
 
       setAttemptedSubmit(false);
+
+      const file = fileInputRef.current.files[0];
 
       const ingredientId = [];
       const ingredientQuantityList = [];
@@ -247,18 +295,28 @@ function CreateRecipe() {
     // navigate("/recipe");
   };
 
-  // Function to validate all fields are filled
-  const isFormValid = () => {
-    return (
-      formData.recipeName &&
-      formData.cuisine &&
-      formData.totalServings &&
-      formData.preparationTime &&
-      tableData &&
-      Array.isArray(tableData) &&
-      tableData.length > 0
-    );
+  // Function to validate all fields
+  const validateForm = () => {
+    const err = {};
+    if (!formData.recipeName.trim()) err.recipeName = ERROR_MESSAGES.REQUIRED;
+    if (!formData.cuisine) err.cuisine = ERROR_MESSAGES.REQUIRED;
+
+    const servingsErr = validatePositiveNumber(formData.totalServings);
+    if (servingsErr) err.totalServings = servingsErr;
+
+    const timeErr = validatePositiveNumber(formData.preparationTime);
+    if (timeErr) err.preparationTime = timeErr;
+
+    if (!formData.cookingMethod) err.cookingMethod = ERROR_MESSAGES.REQUIRED;
+
+    if (!tableData || tableData.length === 0) {
+      err.tableData = "At least one ingredient is required";
+    }
+
+    return err;
   };
+
+  const isFormValid = () => Object.keys(validateForm()).length === 0;
 
   const [isImageAdded, setIsImageAdded] = useState(false);
 
@@ -292,7 +350,7 @@ function CreateRecipe() {
               {/* Header - flex column on mobile, row on sm+ */}
               <div
                 id="no-bg"
-                //className="flex flex-col bg-[#E8F1FF] sm:flex-row justify-between items-center mb-6 sm:mb-8 md:mb-10 lg:mb-12"
+              //className="flex flex-col bg-[#E8F1FF] sm:flex-row justify-between items-center mb-6 sm:mb-8 md:mb-10 lg:mb-12"
               >
                 <div id="no-bg" className="w-full flex justify-center">
                   <h1
@@ -334,16 +392,19 @@ function CreateRecipe() {
                       </label>
                       <input
                         id="no-bg"
-                        className="w-full rounded-xl h-10 sm:h-12 border border-gray-400 px-4"
+                        name="recipeName"
+                        className={`w-full rounded-xl h-10 sm:h-12 border px-4 ${errors.recipeName && touched.recipeName ? 'border-red-500' : 'border-gray-400'}`}
                         placeholder="Enter Recipe Name"
                         value={formData.recipeName}
                         onChange={(e) => handleFieldChange("recipeName", e.target.value)}
+                        onBlur={() => setTouched(prev => ({ ...prev, recipeName: true }))}
                       />
+                      <FieldError error={errors.recipeName} touched={touched.recipeName} />
                     </div>
 
                     <div
                       id="no-bg"
-                       className="flex flex-col w-full gap-2"
+                      className="flex flex-col w-full gap-2"
                     >
                       <label
                         id="no-bg"
@@ -353,13 +414,16 @@ function CreateRecipe() {
                       </label>
                       <select
                         id="no-bg"
-                        className="w-full rounded-xl h-10 sm:h-12 border border-gray-400 px-4 bg-white"
+                        name="cuisine"
+                        className={`w-full rounded-xl h-10 sm:h-12 border px-4 bg-white ${errors.cuisine && touched.cuisine ? 'border-red-500' : 'border-gray-400'}`}
                         value={formData.cuisine}
                         onChange={(e) => handleFieldChange("cuisine", e.target.value)}
+                        onBlur={() => setTouched(prev => ({ ...prev, cuisine: true }))}
                       >
                         <option value="">Select Cuisine Type</option>
                         {cuisineOptions}
                       </select>
+                      <FieldError error={errors.cuisine} touched={touched.cuisine} />
                     </div>
                   </div>
 
@@ -406,8 +470,8 @@ function CreateRecipe() {
                 >
                   Cooking Description
                 </h2>
-                <div id="no-bg" 
-                className="flex flex-col gap-6 w-full"
+                <div id="no-bg"
+                  className="flex flex-col gap-6 w-full"
                 >
                   <div
                     id="no-bg"
@@ -421,13 +485,16 @@ function CreateRecipe() {
                     </label>
                     <input
                       id="no-bg"
-                       className="w-full rounded-xl h-10 sm:h-12 border border-gray-400 px-4"
+                      name="preparationTime"
+                      className={`w-full rounded-xl h-10 sm:h-12 border px-4 ${errors.preparationTime && touched.preparationTime ? 'border-red-500' : 'border-gray-400'}`}
                       placeholder="e.g.,   30 minutes"
                       value={formData.preparationTime}
                       onChange={(e) =>
                         handleFieldChange("preparationTime", e.target.value)
                       }
+                      onBlur={() => setTouched(prev => ({ ...prev, preparationTime: true }))}
                     />
+                    <FieldError error={errors.preparationTime} touched={touched.preparationTime} />
                   </div>
 
                   <div
@@ -442,13 +509,16 @@ function CreateRecipe() {
                     </label>
                     <input
                       id="no-bg"
-                      className="w-full rounded-xl h-10 sm:h-12 border border-gray-400 px-4"
+                      name="totalServings"
+                      className={`w-full rounded-xl h-10 sm:h-12 border px-4 ${errors.totalServings && touched.totalServings ? 'border-red-500' : 'border-gray-400'}`}
                       placeholder="e.g.,  2 servings"
                       value={formData.totalServings}
                       onChange={(e) =>
                         handleFieldChange("totalServings", e.target.value)
                       }
+                      onBlur={() => setTouched(prev => ({ ...prev, totalServings: true }))}
                     />
+                    <FieldError error={errors.totalServings} touched={touched.totalServings} />
                   </div>
 
                   <div
@@ -463,15 +533,18 @@ function CreateRecipe() {
                     </label>
                     <select
                       id="no-bg"
-                      className="w-full rounded-xl h-10 sm:h-12 border border-gray-400 px-4 bg-white"
+                      name="cookingMethod"
+                      className={`w-full rounded-xl h-10 sm:h-12 border px-4 bg-white ${errors.cookingMethod && touched.cookingMethod ? 'border-red-500' : 'border-gray-400'}`}
                       value={formData.cookingMethod}
                       onChange={(e) =>
                         handleFieldChange("cookingMethod", e.target.value)
                       }
+                      onBlur={() => setTouched(prev => ({ ...prev, cookingMethod: true }))}
                     >
                       <option value="">Select Cooking Method</option>
                       {cookingMethodOptions}
                     </select>
+                    <FieldError error={errors.cookingMethod} touched={touched.cookingMethod} />
                   </div>
                 </div>
               </div>
@@ -502,11 +575,12 @@ function CreateRecipe() {
                     />
                   )}
                 </div>
+                <FieldError error={errors.tableData} touched={attemptedSubmit} />
                 {showIngredients && (
                   <FramerClient>
                     <div
                       id="no-bg"
-                     className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 mb-4 sm:mb-6"
+                      className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-6 mb-4 sm:mb-6"
                     >
                       <div
                         id="no-bg"
@@ -537,6 +611,7 @@ function CreateRecipe() {
                           <option value="dairy">Dairy</option>
                           <option value="spices">Spices</option>
                         </select>
+                        <FieldError error={errors.ingredientCategory} touched={touched.ingredientCategory} />
                       </div>
 
                       <div
@@ -560,6 +635,7 @@ function CreateRecipe() {
                           <option value="">Select Ingredient</option>
                           {ingredientOptions}
                         </select>
+                        <FieldError error={errors.ingredient} touched={touched.ingredient} />
                       </div>
                     </div>
 
@@ -587,7 +663,9 @@ function CreateRecipe() {
                             onChange={(e) =>
                               handleFieldChange("ingredientQuantity", e.target.value)
                             }
+                            onBlur={() => setTouched(prev => ({ ...prev, ingredientQuantity: true }))}
                           />
+                          <FieldError error={errors.ingredientQuantity} touched={touched.ingredientQuantity} />
                           {/*      <datalist id="units">
                           <option value="ml" />
                           <option value="g" />
@@ -599,10 +677,10 @@ function CreateRecipe() {
                             id="no-bg"
                             className="w-full sm:w-2/3 rounded-xl h-10 sm:h-12 border border-gray-400 px-4 bg-white"
                             defaultValue=""
-                            /*   value={ingredientQuantity}
-                            onChange={(e) =>
-                              handleIngredientQuantityChange(e.target.value)
-                            } */
+                          /*   value={ingredientQuantity}
+                          onChange={(e) =>
+                            handleIngredientQuantityChange(e.target.value)
+                          } */
                           >
                             <option value="" disabled>
                               Select one
@@ -832,8 +910,8 @@ function CreateRecipe() {
                     />
                   </div>
 
-                  <div id="no-bg" 
-                  className="flex items-center justify-start sm:justify-start sm:w-1/2"
+                  <div id="no-bg"
+                    className="flex items-center justify-start sm:justify-start sm:w-1/2"
                   >
                     <button
                       id="no-bg"

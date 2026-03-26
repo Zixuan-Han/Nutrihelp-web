@@ -47,10 +47,10 @@
 //     <div className="fitness-form-container">
 
 //       <form onSubmit={handleSubmit}>
-        
+
 //         {/* Step 1: Current Fitness */}
 //         {currentStep === 1 && (
-          
+
 //           <div className="current-fitness-form">
 //             <h2>Personalize Your Health Tracker</h2>
 //             <div className="form-group">
@@ -138,7 +138,10 @@
 
 
 import React, { useState } from "react";
-import "./FitnessInput.css"; // Assuming you've kept the existing styles in this file
+import "./FitnessInput.css";
+import { ERROR_MESSAGES, validatePositiveNumber } from "../../../utils/validationRules";
+import FieldError from "../../../components/FieldError";
+import { toast } from "react-toastify";
 
 const FitnessInput = ({ onProfileSaved }) => {
   const [currentFitness, setCurrentFitness] = useState({
@@ -159,6 +162,9 @@ const FitnessInput = ({ onProfileSaved }) => {
       ...currentFitness,
       [name]: value,
     });
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
   };
 
   // Handle target fitness input change
@@ -168,6 +174,9 @@ const FitnessInput = ({ onProfileSaved }) => {
       ...targetFitness,
       [name]: value,
     });
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: undefined }));
+    }
   };
 
   // Handle form submission
@@ -175,8 +184,32 @@ const FitnessInput = ({ onProfileSaved }) => {
     e.preventDefault();
 
     if (currentStep === 1) {
+      const err = {};
+      const weightErr = validatePositiveNumber(currentFitness.weight);
+      if (weightErr) err.weight = weightErr;
+      const heightErr = validatePositiveNumber(currentFitness.height);
+      if (heightErr) err.height = heightErr;
+      if (!currentFitness.bodyType) err.bodyType = ERROR_MESSAGES.REQUIRED;
+
+      if (Object.keys(err).length > 0) {
+        setErrors(err);
+        setTouched({ weight: true, height: true, bodyType: true });
+        return;
+      }
+      setErrors({});
+      setTouched({});
       setCurrentStep(2); // Move to target goal input
     } else {
+      const err = {};
+      const tWeightErr = validatePositiveNumber(targetFitness.targetWeight);
+      if (tWeightErr) err.targetWeight = tWeightErr;
+      if (!targetFitness.endGoal) err.endGoal = ERROR_MESSAGES.REQUIRED;
+
+      if (Object.keys(err).length > 0) {
+        setErrors(err);
+        setTouched({ targetWeight: true, endGoal: true });
+        return;
+      }
       // Prepare the data to be sent to the backend
       const data = {
         weight: currentFitness.weight,
@@ -188,26 +221,26 @@ const FitnessInput = ({ onProfileSaved }) => {
 
       // Send the data to the backend API using fetch
       try {
-        const response = await fetch("http://localhost:80/api/fitness-journey", {
+        const response = await fetch("http://localhost:8080/api/fitness-journey", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(data),
         });
-      
+
         const result = await response.json();
-      
+
         if (response.ok) {
-          alert("Fitness journey saved successfully!");
+          toast.success("Fitness journey saved successfully!");
           onProfileSaved(); // If you want to redirect or show something
         } else {
-          alert(`Error: ${result?.error || "Something went wrong"}`);
+          toast.error(`Error: ${result?.error || "Something went wrong"}`);
         }
       } catch (error) {
-        alert(`Network error: ${error.message}`);
+        toast.error(`Network error: ${error.message}`);
       }
-      
+
     }
   };
 
@@ -225,8 +258,10 @@ const FitnessInput = ({ onProfileSaved }) => {
                 name="weight"
                 value={currentFitness.weight}
                 onChange={handleCurrentInputChange}
-                className="form-input"
+                onBlur={() => setTouched(prev => ({ ...prev, weight: true }))}
+                className={`form-input ${errors.weight && touched.weight ? 'border-red-500' : ''}`}
               />
+              <FieldError error={errors.weight} touched={touched.weight} />
             </div>
             <div className="form-group">
               <label>Current Height (cm):</label>
@@ -235,8 +270,10 @@ const FitnessInput = ({ onProfileSaved }) => {
                 name="height"
                 value={currentFitness.height}
                 onChange={handleCurrentInputChange}
-                className="form-input"
+                onBlur={() => setTouched(prev => ({ ...prev, height: true }))}
+                className={`form-input ${errors.height && touched.height ? 'border-red-500' : ''}`}
               />
+              <FieldError error={errors.height} touched={touched.height} />
             </div>
             <div className="form-group">
               <label>Body Type:</label>
@@ -244,13 +281,15 @@ const FitnessInput = ({ onProfileSaved }) => {
                 name="bodyType"
                 value={currentFitness.bodyType}
                 onChange={handleCurrentInputChange}
-                className="form-input"
+                onBlur={() => setTouched(prev => ({ ...prev, bodyType: true }))}
+                className={`form-input ${errors.bodyType && touched.bodyType ? 'border-red-500' : ''}`}
               >
                 <option value="">Select Body Type</option>
                 <option value="Ectomorph">Ectomorph (Lean)</option>
                 <option value="Mesomorph">Mesomorph (Muscular)</option>
                 <option value="Endomorph">Endomorph (Rounder)</option>
               </select>
+              <FieldError error={errors.bodyType} touched={touched.bodyType} />
             </div>
             <button type="submit" className="next-button">
               Next: Set Target Goal
@@ -271,8 +310,10 @@ const FitnessInput = ({ onProfileSaved }) => {
                 name="targetWeight"
                 value={targetFitness.targetWeight}
                 onChange={handleTargetInputChange}
-                className="form-input"
+                onBlur={() => setTouched(prev => ({ ...prev, targetWeight: true }))}
+                className={`form-input ${errors.targetWeight && touched.targetWeight ? 'border-red-500' : ''}`}
               />
+              <FieldError error={errors.targetWeight} touched={touched.targetWeight} />
             </div>
 
             {/* Question 2: End Goal */}
@@ -282,7 +323,8 @@ const FitnessInput = ({ onProfileSaved }) => {
                 name="endGoal"
                 value={targetFitness.endGoal}
                 onChange={handleTargetInputChange}
-                className="form-input"
+                onBlur={() => setTouched(prev => ({ ...prev, endGoal: true }))}
+                className={`form-input ${errors.endGoal && touched.endGoal ? 'border-red-500' : ''}`}
               >
                 <option value="">Select End Goal</option>
                 <option value="Gain Muscle">Gain Muscle</option>
@@ -291,6 +333,7 @@ const FitnessInput = ({ onProfileSaved }) => {
                 <option value="Maintain">Maintain Weight</option>
                 <option value="Healthy Schedule">Just a Healthy Schedule</option>
               </select>
+              <FieldError error={errors.endGoal} touched={touched.endGoal} />
             </div>
 
             <button type="submit" className="submit-button">Submit</button>

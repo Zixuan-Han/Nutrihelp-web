@@ -6,89 +6,94 @@ import signupImage from "../../images/Nutrihelp.jpg";
 import logoImage from "../../images/logos_black_icon.png";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
+import { useFormValidation } from "../../hooks/useFormValidation";
+import { validateEmail, validatePassword, validatePhone, ERROR_MESSAGES } from "../../utils/validationRules";
+import FieldError from "../../components/FieldError";
+import { toast } from "react-toastify";
 
 export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-  });
+  const [serverError, setServerError] = useState("");
 
   const handleGoogleSignup = async () => {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback?mode=signup`,
-    },
-  })
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?mode=signup`,
+      },
+    })
 
-  if (error) {
-    setServerError(error.message)
+    if (error) {
+      setServerError(error.message)
+    }
   }
-}
 
   const handleAppleSignup = async () => {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: "apple",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback?mode=signup`,
-    },
-  })
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?mode=signup`,
+      },
+    })
 
-  if (error) {
-    setServerError(error.message)
+    if (error) {
+      setServerError(error.message)
+    }
   }
-}
-
-
-  const [errors, setErrors] = useState({});
-  const [serverError, setServerError] = useState("");
-  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
-  const API_BASE = "http://localhost"; 
+  const API_BASE = "http://localhost:8080";
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
-    setServerError("");
-  };
-
-  const validate = () => {
+  const validate = (values) => {
     const err = {};
-    if (!form.firstName.trim()) err.firstName = "Required";
-    if (!form.lastName.trim()) err.lastName = "Required";
-    if (!form.email || !form.email.includes("@")) err.email = "Enter valid email";
-    if (!form.password) err.password = "Required";
-    if (form.password !== form.confirmPassword)
-      err.confirmPassword = "Passwords do not match";
+    if (!values.firstName.trim()) err.firstName = ERROR_MESSAGES.REQUIRED;
+    if (!values.lastName.trim()) err.lastName = ERROR_MESSAGES.REQUIRED;
 
-    setErrors(err);
-    return Object.keys(err).length === 0;
+    const emailErr = validateEmail(values.email);
+    if (emailErr) err.email = emailErr;
+
+    const passErr = validatePassword(values.password);
+    if (passErr) err.password = passErr;
+
+    if (values.password !== values.confirmPassword)
+      err.confirmPassword = ERROR_MESSAGES.PASSWORD_MISMATCH;
+
+    const phoneErr = validatePhone(values.phone);
+    if (phoneErr) err.phone = phoneErr;
+
+    return err;
   };
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setServerError("");
+  const {
+    values: form,
+    errors,
+    touched,
+    isSubmitting: loading,
+    handleChange,
+    handleBlur,
+    handleSubmit: submit,
+    setErrors,
+  } = useFormValidation(
+    {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+    },
+    validate,
+    async (values) => {
+      setServerError("");
 
-    if (!validate()) return;
-
-    const payload = {
-      name: `${form.firstName} ${form.lastName}`.trim(),
-      email: form.email.trim().toLowerCase(),
-      password: form.password,
-      contact_number: form.phone || "0412345678",
-      address: "Placeholder address 123",
-    };
-
-    try {
-      setLoading(true);
+      const payload = {
+        name: `${values.firstName} ${values.lastName}`.trim(),
+        email: values.email.trim().toLowerCase(),
+        password: values.password,
+        contact_number: values.phone || "0412345678",
+        address: "Placeholder address 123",
+      };
 
       const res = await fetch(`${API_BASE}/api/signup`, {
         method: "POST",
@@ -97,40 +102,42 @@ export default function SignUp() {
       });
 
       if (!res.ok) {
-        // parse error response robustly (JSON or text)
         const text = await res.text();
         let msg = `Sign up failed (HTTP ${res.status})`;
         try {
           const data = JSON.parse(text);
-          msg =
-            data.error ||
-            data.message ||
-            (Array.isArray(data.errors)
-              ? data.errors.map((e) => e.msg).join(", ")
-              : msg);
+
+          // Map backend errors if they exist
+          if (data.errors && Array.isArray(data.errors)) {
+            const fieldErrors = {};
+            data.errors.forEach(err => {
+              if (err.param === 'email') fieldErrors.email = err.msg;
+              if (err.param === 'password') fieldErrors.password = err.msg;
+              // Add more mappings as needed
+            });
+            if (Object.keys(fieldErrors).length > 0) {
+              setErrors(fieldErrors);
+              return;
+            }
+          }
+
+          msg = data.error || data.message || msg;
         } catch {
-          // not JSON — keep text if any
           if (text) msg = text;
         }
         throw new Error(msg);
       }
 
-      // created (201) -> redirect to login
       if (res.status === 201 || res.status === 200) {
-        toast.success("Account created successfully. Please login to continue.")
-        navigate("/login")
-        return
+        toast.success("Account created successfully. Please login to continue.");
+        navigate("/login");
+        return;
       }
 
-      // other 2xx statuses — attempt to parse JSON then show message
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || `Sign up failed (HTTP ${res.status})`);
-    } catch (err) {
-      setServerError(err.message || "Sign up failed.");
-    } finally {
-      setLoading(false);
     }
-  };
+  );
 
   const styles = {
     container: {
@@ -221,15 +228,16 @@ export default function SignUp() {
       color: "#000",
     },
 
-    input: {
+    input: (name) => ({
       width: "100%",
       padding: "12px 16px",
       borderRadius: "8px",
-      border: "2px solid black",
+      border: errors[name] && touched[name] ? "2px solid red" : "2px solid black",
       fontSize: "15px",
       backgroundColor: "transparent",
       color: "#000",
-    },
+      transition: "border-color 0.2s ease",
+    }),
 
     passwordWrap: {
       position: "relative",
@@ -374,24 +382,26 @@ export default function SignUp() {
                 <label style={styles.label}>First Name</label>
                 <input
                   name="firstName"
-                  style={styles.input}
+                  style={styles.input("firstName")}
                   placeholder="Enter first name"
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   value={form.firstName}
                 />
-                {errors.firstName && <p style={styles.error}>{errors.firstName}</p>}
+                <FieldError error={errors.firstName} touched={touched.firstName} />
               </div>
 
               <div style={styles.field}>
                 <label style={styles.label}>Last Name</label>
                 <input
                   name="lastName"
-                  style={styles.input}
+                  style={styles.input("lastName")}
                   placeholder="Enter last name"
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   value={form.lastName}
                 />
-                {errors.lastName && <p style={styles.error}>{errors.lastName}</p>}
+                <FieldError error={errors.lastName} touched={touched.lastName} />
               </div>
             </div>
 
@@ -401,23 +411,26 @@ export default function SignUp() {
                 <label style={styles.label}>Email</label>
                 <input
                   name="email"
-                  style={styles.input}
+                  style={styles.input("email")}
                   placeholder="Enter your email"
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   value={form.email}
                 />
-                {errors.email && <p style={styles.error}>{errors.email}</p>}
+                <FieldError error={errors.email} touched={touched.email} />
               </div>
 
               <div style={styles.field}>
                 <label style={styles.label}>Phone Number</label>
                 <input
                   name="phone"
-                  style={styles.input}
+                  style={styles.input("phone")}
                   placeholder="Enter phone number"
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   value={form.phone}
                 />
+                <FieldError error={errors.phone} touched={touched.phone} />
               </div>
             </div>
 
@@ -429,9 +442,10 @@ export default function SignUp() {
                   <input
                     name="password"
                     type={showPassword ? "text" : "password"}
-                    style={styles.input}
+                    style={styles.input("password")}
                     placeholder="Enter password"
                     onChange={handleChange}
+                    onBlur={handleBlur}
                     value={form.password}
                   />
                   <button
@@ -442,7 +456,7 @@ export default function SignUp() {
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
-                {errors.password && <p style={styles.error}>{errors.password}</p>}
+                <FieldError error={errors.password} touched={touched.password} />
               </div>
 
               <div style={styles.field}>
@@ -451,9 +465,10 @@ export default function SignUp() {
                   <input
                     name="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
-                    style={styles.input}
+                    style={styles.input("confirmPassword")}
                     placeholder="Re-enter password"
                     onChange={handleChange}
+                    onBlur={handleBlur}
                     value={form.confirmPassword}
                   />
                   <button
@@ -466,9 +481,7 @@ export default function SignUp() {
                     {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
-                {errors.confirmPassword && (
-                  <p style={styles.error}>{errors.confirmPassword}</p>
-                )}
+                <FieldError error={errors.confirmPassword} touched={touched.confirmPassword} />
               </div>
             </div>
 

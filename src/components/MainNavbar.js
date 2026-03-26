@@ -7,10 +7,10 @@ import SideMenu from "./SideMenu";
 
 const RobotIcon = ({ size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-    <rect x="3" y="7" width="18" height="14" rx="4" ry="4" fill="none" stroke="currentColor" strokeWidth="2"/>
-    <circle cx="9" cy="13" r="1" fill="currentColor"/>
-    <circle cx="15" cy="13" r="1" fill="currentColor"/>
-    <path d="M12 7V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <rect x="3" y="7" width="18" height="14" rx="4" ry="4" fill="none" stroke="currentColor" strokeWidth="2" />
+    <circle cx="9" cy="13" r="1" fill="currentColor" />
+    <circle cx="15" cy="13" r="1" fill="currentColor" />
+    <path d="M12 7V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
   </svg>
 );
 
@@ -119,9 +119,8 @@ const MainNavbar = () => {
 
   return (
     <header
-      className={`main-header ${darkMode ? "dark-mode" : ""} ${
-        scrolled ? "scrolled" : ""
-      }`}
+      className={`main-header ${darkMode ? "dark-mode" : ""} ${scrolled ? "scrolled" : ""
+        }`}
     >
       <nav className="main-nav" ref={navRef} aria-label="Main">
         {/* Logo -> Home */}

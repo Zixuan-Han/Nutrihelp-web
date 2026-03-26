@@ -1,33 +1,41 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, Clock, Plus, X, Edit2, Trash2, Bell, MapPin, User, Phone, Check, Loader2 } from 'lucide-react';
 import { appointmentApi } from '../../../services/appointmentApi';
+import { ERROR_MESSAGES, validatePhone } from '../../../utils/validationRules';
+import FieldError from '../../../components/FieldError';
+import { toast } from 'react-toastify';
 import './appointment.css';
 
 // Move component definitions outside to prevent re-creation on each render
-const InputField = ({ label, type = 'text', value, onChange, placeholder, required = false }) => (
+const InputField = ({ label, type = 'text', value, onChange, onBlur, error, touched, placeholder, required = false, name }) => (
   <div className="input-field">
     <label className="input-label">
       {label} {required && <span className="required-indicator">*</span>}
     </label>
     <input
       type={type}
+      name={name}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
       placeholder={placeholder}
-      className="input-control"
+      className={`input-control ${error && touched ? 'error-border' : ''}`}
     />
+    <FieldError error={error} touched={touched} />
   </div>
 );
 
-const SelectField = ({ label, value, onChange, options, required = false }) => (
+const SelectField = ({ label, value, onChange, onBlur, error, touched, options, required = false, name }) => (
   <div className="input-field">
     <label className="input-label">
       {label} {required && <span className="required-indicator">*</span>}
     </label>
     <select
+      name={name}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="select-control"
+      onBlur={onBlur}
+      className={`select-control ${error && touched ? 'error-border' : ''}`}
     >
       <option value="">Select...</option>
       {options.map(opt => (
@@ -36,6 +44,7 @@ const SelectField = ({ label, value, onChange, options, required = false }) => (
         </option>
       ))}
     </select>
+    <FieldError error={error} touched={touched} />
   </div>
 );
 
@@ -85,6 +94,9 @@ export default function AppointmentsManager() {
     reminder: '1-day'
   });
 
+  const [formErrors, setFormErrors] = useState({});
+  const [formTouched, setFormTouched] = useState({});
+
   const appointmentTypes = [
     'General Checkup',
     'Dental',
@@ -111,7 +123,7 @@ export default function AppointmentsManager() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await appointmentApi.getAppointments({
         page,
         pageSize
@@ -148,11 +160,22 @@ export default function AppointmentsManager() {
     });
     setEditingId(null);
     setShowAddForm(false);
+    setFormErrors({});
+    setFormTouched({});
   };
 
   const handleSubmit = async () => {
-    if (!formData.title || !formData.date || !formData.time) {
-      alert('Please fill in at least the appointment title, date, and time.');
+    const err = {};
+    if (!formData.title.trim()) err.title = ERROR_MESSAGES.REQUIRED;
+    if (!formData.date) err.date = ERROR_MESSAGES.REQUIRED;
+    if (!formData.time) err.time = ERROR_MESSAGES.REQUIRED;
+    const phoneErr = validatePhone(formData.phone);
+    if (phoneErr) err.phone = phoneErr;
+
+    if (Object.keys(err).length > 0) {
+      setFormErrors(err);
+      setFormTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+      toast.error("Please fill in all required fields.");
       return;
     }
 
@@ -186,17 +209,17 @@ export default function AppointmentsManager() {
       };
 
       if (editingId) {
-        await appointmentApi.updateAppointment(editingId, appointmentData);
-      } else {
         await appointmentApi.createAppointment(appointmentData);
       }
+
+      toast.success(`Appointment ${editingId ? 'updated' : 'created'} successfully!`);
 
       // Refresh the appointments list
       await fetchAppointments();
       resetForm();
     } catch (err) {
       console.error('Error saving appointment:', err);
-      alert(err.message || 'Failed to save appointment. Please try again.');
+      toast.error(err.message || 'Failed to save appointment. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -225,11 +248,12 @@ export default function AppointmentsManager() {
       try {
         setError(null);
         await appointmentApi.deleteAppointment(id);
+        toast.success("Appointment deleted successfully!");
         // Refresh the appointments list
         await fetchAppointments();
       } catch (err) {
         console.error('Error deleting appointment:', err);
-        alert(err.message || 'Failed to delete appointment. Please try again.');
+        toast.error(err.message || 'Failed to delete appointment. Please try again.');
       }
     }
   };
@@ -288,16 +312,16 @@ export default function AppointmentsManager() {
         <div className="filter-tabs">
           <div className="tab-section">
             {[
-              { value: 'upcoming', label: 'Upcoming'},
-              { value: 'past', label: 'Past'},
-              { value: 'all', label: 'All'}
+              { value: 'upcoming', label: 'Upcoming' },
+              { value: 'past', label: 'Past' },
+              { value: 'all', label: 'All' }
             ].map(filter => (
               <button
                 key={filter.value}
                 onClick={() => setViewFilter(filter.value)}
                 className={`filter-tab ${viewFilter === filter.value ? 'active' : ''}`}
               >
-              {filter.label}
+                {filter.label}
               </button>
             ))}
           </div>
@@ -328,69 +352,114 @@ export default function AppointmentsManager() {
             <div className="form-grid">
               <InputField
                 label="Appointment Title"
+                name="title"
                 value={formData.title}
-                onChange={(val) => setFormData({ ...formData, title: val })}
+                onChange={(val) => {
+                  setFormData({ ...formData, title: val });
+                  if (formErrors.title) setFormErrors(prev => ({ ...prev, title: undefined }));
+                }}
+                onBlur={() => setFormTouched(prev => ({ ...prev, title: true }))}
+                error={formErrors.title}
+                touched={formTouched.title}
                 placeholder="e.g., Dr. Smith - Annual Checkup"
                 required
               />
-              
+
               <InputField
                 label="Doctor's Name"
+                name="doctor"
                 value={formData.doctor}
                 onChange={(val) => setFormData({ ...formData, doctor: val })}
+                onBlur={() => setFormTouched(prev => ({ ...prev, doctor: true }))}
+                error={formErrors.doctor}
+                touched={formTouched.doctor}
                 placeholder="e.g., Dr. Robert Smith"
               />
             </div>
 
             <SelectField
               label="Appointment Type"
+              name="type"
               value={formData.type}
               onChange={(val) => setFormData({ ...formData, type: val })}
+              onBlur={() => setFormTouched(prev => ({ ...prev, type: true }))}
+              error={formErrors.type}
+              touched={formTouched.type}
               options={appointmentTypes}
             />
 
             <div className="form-grid-narrow">
               <InputField
                 label="Date"
+                name="date"
                 type="date"
                 value={formData.date}
-                onChange={(val) => setFormData({ ...formData, date: val })}
+                onChange={(val) => {
+                  setFormData({ ...formData, date: val });
+                  if (formErrors.date) setFormErrors(prev => ({ ...prev, date: undefined }));
+                }}
+                onBlur={() => setFormTouched(prev => ({ ...prev, date: true }))}
+                error={formErrors.date}
+                touched={formTouched.date}
                 required
               />
-              
+
               <InputField
                 label="Time"
+                name="time"
                 type="time"
                 value={formData.time}
-                onChange={(val) => setFormData({ ...formData, time: val })}
+                onChange={(val) => {
+                  setFormData({ ...formData, time: val });
+                  if (formErrors.time) setFormErrors(prev => ({ ...prev, time: undefined }));
+                }}
+                onBlur={() => setFormTouched(prev => ({ ...prev, time: true }))}
+                error={formErrors.time}
+                touched={formTouched.time}
                 required
               />
             </div>
 
             <InputField
               label="Location/Clinic Name"
+              name="location"
               value={formData.location}
               onChange={(val) => setFormData({ ...formData, location: val })}
+              onBlur={() => setFormTouched(prev => ({ ...prev, location: true }))}
+              error={formErrors.location}
+              touched={formTouched.location}
               placeholder="e.g., Main Street Medical Center"
             />
 
             <InputField
               label="Address"
+              name="address"
               value={formData.address}
               onChange={(val) => setFormData({ ...formData, address: val })}
+              onBlur={() => setFormTouched(prev => ({ ...prev, address: true }))}
+              error={formErrors.address}
+              touched={formTouched.address}
               placeholder="e.g., 123 Main St, Suite 200"
             />
 
             <InputField
               label="Phone Number"
+              name="phone"
               type="tel"
               value={formData.phone}
-              onChange={(val) => setFormData({ ...formData, phone: val })}
+              onChange={(val) => {
+                setFormData({ ...formData, phone: val });
+                if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: undefined }));
+              }}
+              onBlur={() => setFormTouched(prev => ({ ...prev, phone: true }))}
+              error={formErrors.phone}
+              touched={formTouched.phone}
               placeholder="e.g., (555) 123-4567"
             />
 
             <SelectField
               label="Reminder"
+              name="reminder"
               value={formData.reminder}
               onChange={(val) => setFormData({ ...formData, reminder: val })}
               options={reminderOptions}
@@ -450,16 +519,16 @@ export default function AppointmentsManager() {
               No {viewFilter !== 'all' ? viewFilter : ''} appointments
             </h3>
             <p className="empty-state-text">
-              {viewFilter === 'upcoming' ? 'You have no upcoming appointments scheduled.' : 
-               viewFilter === 'past' ? 'No past appointments to show.' :
-               'Click "Add Appointment" to schedule your first appointment.'}
+              {viewFilter === 'upcoming' ? 'You have no upcoming appointments scheduled.' :
+                viewFilter === 'past' ? 'No past appointments to show.' :
+                  'Click "Add Appointment" to schedule your first appointment.'}
             </p>
           </div>
         ) : !loading && (
           <div className="appointments-list">
             {filteredAppointments.map(apt => {
               const isPast = new Date(`${apt.date}T${apt.time}`) < now;
-              
+
               return (
                 <div
                   key={apt.id}
@@ -476,7 +545,7 @@ export default function AppointmentsManager() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="appointment-actions">
                       <button
                         onClick={() => handleEdit(apt)}
@@ -485,7 +554,7 @@ export default function AppointmentsManager() {
                         <Edit2 size={18} />
                         Edit
                       </button>
-                      
+
                       <button
                         onClick={() => handleDelete(apt.id)}
                         className="btn-delete"
