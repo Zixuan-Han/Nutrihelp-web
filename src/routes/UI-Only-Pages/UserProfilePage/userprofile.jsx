@@ -1,7 +1,12 @@
   "use client"
 
-  import { useMemo, useRef, useState, useEffect } from "react"
+  import { useContext, useMemo, useRef, useState, useEffect } from "react"
+  import { useNavigate } from "react-router-dom"
+  import { toast } from "react-toastify"
   import profileLogo from "./NutriHelp-logos_black.png"
+  import { UserContext } from "../../../context/user.context"
+  import { supabase } from "../../../supabaseClient"
+  import ChangePasswordModal from "./ChangePasswordModal"
 
 
   /* ============ CONSTANTS ============ */
@@ -19,8 +24,6 @@
     lastName: "",
     email: "",
     phone: "",
-    password: "",
-    confirm: "",
     goals: [],
     avatar: null,
   }
@@ -247,20 +250,50 @@ const getRadioInnerStyles = (checked) => ({
     const [form, setForm] = useState(INITIAL_FORM)
     const [touched, setTouched] = useState({})
     const [hoveredButton, setHoveredButton] = useState(null)
+    const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false)
     const fileRef = useRef(null)
+    const navigate = useNavigate()
+    const { currentUser, logOut, setCurrentUser } = useContext(UserContext)
+
+    const storedSession = useMemo(() => {
+      try {
+        const raw = localStorage.getItem("user_session")
+        return raw ? JSON.parse(raw) : null
+      } catch (_error) {
+        return null
+      }
+    }, [currentUser, isChangePasswordOpen])
+
+    const currentUserId =
+      currentUser?.id ||
+      currentUser?.user_id ||
+      storedSession?.id ||
+      storedSession?.user_id ||
+      ""
+
+    const authToken =
+      localStorage.getItem("auth_token") ||
+      localStorage.getItem("jwt_token") ||
+      currentUser?.token ||
+      storedSession?.token ||
+      ""
 
   useEffect(() => {
   const fetchProfile = async () => {
     try {
       const sessionRaw = localStorage.getItem("user_session")
-      const token = localStorage.getItem("jwt_token")
+      const parsedSession = sessionRaw ? JSON.parse(sessionRaw) : null
+      const token =
+        localStorage.getItem("auth_token") ||
+        localStorage.getItem("jwt_token") ||
+        parsedSession?.token
 
-      if (!sessionRaw || !token) {
+      if (!parsedSession || !token) {
         console.warn("JWT token missing")
         return
       }
 
-      const session = JSON.parse(sessionRaw)
+      const session = parsedSession
 
       const res = await fetch("http://localhost:80/api/profile", {
         method: "GET",
@@ -311,8 +344,6 @@ const getRadioInnerStyles = (checked) => ({
       if (touched.firstName && !form.firstName) e.firstName = "Required"
       if (touched.email && !emailOk(form.email)) e.email = "Invalid email"
       if (touched.phone && !phoneOk(form.phone)) e.phone = "Invalid phone"
-      if (touched.password && form.password.length < 6) e.password = "Min 6 chars"
-      if (touched.confirm && form.confirm !== form.password) e.confirm = "Mismatch"
       return e
     }, [form, touched])
 
@@ -327,16 +358,38 @@ const getRadioInnerStyles = (checked) => ({
       mark("email")
       mark("phone")
       if (Object.keys(errors).length === 0) {
-        alert("Changes saved!")
+        toast.success("Profile changes saved.")
       }
     }
 
-    const handleUpdatePassword = () => {
-      mark("password")
-      mark("confirm")
-      if (Object.keys(errors).length === 0) {
-        alert("Password updated!")
+    const completeLogoutAndRedirect = async () => {
+      try {
+        await supabase.auth.signOut()
+      } catch (_error) {
+        // Ignore Supabase sign-out errors and continue local/session cleanup.
       }
+
+      localStorage.removeItem("auth_token")
+      localStorage.removeItem("jwt_token")
+      localStorage.removeItem("user_session")
+
+      if (typeof logOut === "function") {
+        logOut()
+      } else if (typeof setCurrentUser === "function") {
+        setCurrentUser(null)
+      }
+
+      navigate("/login", { replace: true })
+    }
+
+    const handlePasswordUpdated = async () => {
+      toast.success("Password changed successfully. Please sign in again.")
+      await completeLogoutAndRedirect()
+    }
+
+    const handlePasswordSessionExpired = async (message) => {
+      toast.info(message || "Session expired. Please sign in again.")
+      await completeLogoutAndRedirect()
     }
 
     return (
@@ -449,37 +502,37 @@ const getRadioInnerStyles = (checked) => ({
             <section style={getCardStyles(width)}>
               <h2 style={getTitleStyles(width)}>Your Password</h2>
 
-              <div style={getGrid2Styles(width)}>
-                <FormField
-                  label="New Password"
-                  type="password"
-                  value={form.password}
-                  onChange={(v) => set("password", v)}
-                  onBlur={() => mark("password")}
-                  error={touched.password ? errors.password : undefined}
-                  width={width}
-                />
-                <FormField
-                  label="Repeat New Password"
-                  type="password"
-                  value={form.confirm}
-                  onChange={(v) => set("confirm", v)}
-                  onBlur={() => mark("confirm")}
-                  error={touched.confirm ? errors.confirm : undefined}
-                  width={width}
-                />
-              </div>
+              <p style={{ marginTop: -8, color: "#475569", lineHeight: 1.5, marginBottom: 16 }}>
+                For account security, password updates require verifying your current password first.
+                Click the button below to open the secure 2-step password change flow.
+              </p>
 
               <button
-                style={hoveredButton === "password" ? getButtonHoverStyles(width) : getButtonStyles(width)}
-                onMouseEnter={() => setHoveredButton("password")}
+                style={hoveredButton === "changePassword" ? getButtonHoverStyles(width) : getButtonStyles(width)}
+                onMouseEnter={() => setHoveredButton("changePassword")}
                 onMouseLeave={() => setHoveredButton(null)}
-                onClick={handleUpdatePassword}
+                onClick={() => setIsChangePasswordOpen(true)}
+                disabled={!currentUserId}
               >
-                Update Password
+                Change Password
               </button>
+
+              {!currentUserId ? (
+                <div style={{ marginTop: 10, color: "#b45309", fontSize: 13 }}>
+                  Unable to load your account session. Please sign in again.
+                </div>
+              ) : null}
             </section>
           </main>
+
+          <ChangePasswordModal
+            isOpen={isChangePasswordOpen}
+            onRequestClose={() => setIsChangePasswordOpen(false)}
+            userId={currentUserId}
+            authToken={authToken}
+            onPasswordUpdated={handlePasswordUpdated}
+            onSessionExpired={handlePasswordSessionExpired}
+          />
         </div>
       </div>
     )
