@@ -1,6 +1,7 @@
   "use client"
 
   import { useContext, useMemo, useRef, useState, useEffect } from "react"
+  import { ArrowRight, KeyRound, ShieldCheck, TimerReset } from "lucide-react"
   import { useNavigate } from "react-router-dom"
   import { toast } from "react-toastify"
   import profileLogo from "./NutriHelp-logos_black.png"
@@ -211,6 +212,138 @@
   const getButtonHoverStyles = (width) => ({
     ...getButtonStyles(width),
     background: "#1e54d9",
+  })
+
+  const getPasswordPanelStyles = (width) => ({
+    position: "relative",
+    overflow: "hidden",
+    borderRadius: width < 768 ? 18 : 24,
+    padding: width < 768 ? "22px 18px" : width < 1024 ? "30px 24px" : "34px 30px",
+    border: "1px solid rgba(30, 64, 175, 0.28)",
+    background:
+      "linear-gradient(136deg, #0f172a 0%, #1d4ed8 52%, #0f766e 128%)",
+    boxShadow: "0 20px 46px rgba(15, 23, 42, 0.28)",
+    display: "grid",
+    gridTemplateColumns:
+      width < 980 ? "1fr" : "minmax(0, 1.3fr) minmax(260px, 0.7fr)",
+    gap: width < 980 ? 20 : 24,
+    color: "#f8fafc",
+  })
+
+  const getPasswordOrbStyles = (position) => ({
+    position: "absolute",
+    width: position === "top" ? 220 : 260,
+    height: position === "top" ? 220 : 260,
+    borderRadius: "50%",
+    pointerEvents: "none",
+    zIndex: 0,
+    top: position === "top" ? -90 : "auto",
+    right: position === "top" ? -70 : "auto",
+    left: position === "bottom" ? -100 : "auto",
+    bottom: position === "bottom" ? -120 : "auto",
+    background:
+      position === "top"
+        ? "radial-gradient(circle, rgba(165, 180, 252, 0.32), rgba(165, 180, 252, 0))"
+        : "radial-gradient(circle, rgba(45, 212, 191, 0.24), rgba(45, 212, 191, 0))",
+  })
+
+  const getPasswordContentStyles = () => ({
+    position: "relative",
+    zIndex: 1,
+  })
+
+  const getPasswordBadgeStyles = () => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 999,
+    border: "1px solid rgba(191, 219, 254, 0.35)",
+    background: "rgba(15, 23, 42, 0.2)",
+    color: "rgba(219, 234, 254, 0.98)",
+    fontSize: 12,
+    fontWeight: 700,
+    padding: "6px 12px",
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    marginBottom: 14,
+  })
+
+  const getPasswordHeadingStyles = (width) => ({
+    margin: 0,
+    fontSize: width < 768 ? 34 : width < 1024 ? 40 : 46,
+    lineHeight: 1.08,
+    letterSpacing: "-0.02em",
+    fontWeight: 800,
+    color: "#f8fafc",
+    fontFamily: "\"Sora\", \"Poppins\", sans-serif",
+  })
+
+  const getPasswordDescriptionStyles = (width) => ({
+    margin: "16px 0 0",
+    maxWidth: 720,
+    color: "rgba(226, 232, 240, 0.95)",
+    fontSize: width < 768 ? 15 : 18,
+    lineHeight: 1.55,
+    fontWeight: 500,
+    fontFamily: "\"Manrope\", \"Poppins\", sans-serif",
+  })
+
+  const getPasswordActionStyles = (width, hovered, disabled) => ({
+    marginTop: width < 768 ? 20 : 24,
+    minHeight: width < 768 ? 50 : 56,
+    padding: width < 768 ? "0 20px" : "0 26px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.3)",
+    background: disabled
+      ? "linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%)"
+      : hovered
+      ? "linear-gradient(135deg, #ffffff 0%, #dbeafe 100%)"
+      : "linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)",
+    color: disabled ? "#475569" : "#0f172a",
+    fontSize: width < 768 ? 16 : 17,
+    fontWeight: 800,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    width: width < 768 ? "100%" : "auto",
+    cursor: disabled ? "not-allowed" : "pointer",
+    boxShadow: disabled
+      ? "none"
+      : hovered
+      ? "0 14px 28px rgba(30, 64, 175, 0.36)"
+      : "0 12px 22px rgba(15, 23, 42, 0.24)",
+    transform: hovered && !disabled ? "translateY(-2px)" : "translateY(0)",
+    transition: "all 0.2s ease",
+  })
+
+  const getPasswordMetaStyles = (width) => ({
+    position: "relative",
+    zIndex: 1,
+    display: "grid",
+    gap: 12,
+    marginTop: width < 980 ? 0 : 18,
+  })
+
+  const getPasswordMetaItemStyles = () => ({
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: 12,
+    padding: "11px 12px",
+    border: "1px solid rgba(191, 219, 254, 0.28)",
+    background: "rgba(15, 23, 42, 0.24)",
+    color: "rgba(239, 246, 255, 0.98)",
+    fontSize: 13,
+    fontWeight: 600,
+    fontFamily: "\"Manrope\", \"Poppins\", sans-serif",
+  })
+
+  const getPasswordWarningStyles = () => ({
+    marginTop: 10,
+    color: "#fef08a",
+    fontSize: 13,
+    fontWeight: 600,
   })
 
   /* ============ CUSTOM RADIO STYLES ============ */
@@ -499,29 +632,60 @@ const getRadioInnerStyles = (checked) => ({
             </section>
 
             {/* Your Password Section */}
-            <section style={getCardStyles(width)}>
-              <h2 style={getTitleStyles(width)}>Your Password</h2>
+            <section style={getPasswordPanelStyles(width)}>
+              <div style={getPasswordOrbStyles("top")} />
+              <div style={getPasswordOrbStyles("bottom")} />
 
-              <p style={{ marginTop: -8, color: "#475569", lineHeight: 1.5, marginBottom: 16 }}>
-                For account security, password updates require verifying your current password first.
-                Click the button below to open the secure 2-step password change flow.
-              </p>
-
-              <button
-                style={hoveredButton === "changePassword" ? getButtonHoverStyles(width) : getButtonStyles(width)}
-                onMouseEnter={() => setHoveredButton("changePassword")}
-                onMouseLeave={() => setHoveredButton(null)}
-                onClick={() => setIsChangePasswordOpen(true)}
-                disabled={!currentUserId}
-              >
-                Change Password
-              </button>
-
-              {!currentUserId ? (
-                <div style={{ marginTop: 10, color: "#b45309", fontSize: 13 }}>
-                  Unable to load your account session. Please sign in again.
+              <div style={getPasswordContentStyles()}>
+                <div style={getPasswordBadgeStyles()}>
+                  <ShieldCheck size={14} />
+                  Account Security
                 </div>
-              ) : null}
+
+                <h2 style={getPasswordHeadingStyles(width)}>Your Password</h2>
+
+                <p style={getPasswordDescriptionStyles(width)}>
+                  Guard your account with a secure 2-step password update flow.
+                  First verify your current password, then set a stronger new one
+                  with real-time validation.
+                </p>
+
+                <button
+                  style={getPasswordActionStyles(
+                    width,
+                    hoveredButton === "changePassword",
+                    !currentUserId
+                  )}
+                  onMouseEnter={() => setHoveredButton("changePassword")}
+                  onMouseLeave={() => setHoveredButton(null)}
+                  onClick={() => setIsChangePasswordOpen(true)}
+                  disabled={!currentUserId}
+                >
+                  Change Password
+                  <ArrowRight size={18} />
+                </button>
+
+                {!currentUserId ? (
+                  <div style={getPasswordWarningStyles()}>
+                    Unable to load your account session. Please sign in again.
+                  </div>
+                ) : null}
+              </div>
+
+              <div style={getPasswordMetaStyles(width)}>
+                <div style={getPasswordMetaItemStyles()}>
+                  <KeyRound size={16} />
+                  Current password verification gate
+                </div>
+                <div style={getPasswordMetaItemStyles()}>
+                  <ShieldCheck size={16} />
+                  Inline strength and mismatch checks
+                </div>
+                <div style={getPasswordMetaItemStyles()}>
+                  <TimerReset size={16} />
+                  Session protection after update
+                </div>
+              </div>
             </section>
           </main>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useReducer, useRef } from "react";
-import { CheckCircle2, Circle, Eye, EyeOff } from "lucide-react";
+import { CheckCircle2, Circle, Eye, EyeOff, X } from "lucide-react";
 import {
   PASSWORD_RULES,
   getPasswordChecklist,
@@ -858,7 +858,7 @@ const ChangePasswordModal = ({
             disabled={state.isLoading}
             aria-label="Close change password modal"
           >
-            ×
+            <X size={18} strokeWidth={2.5} />
           </button>
         </div>
 
