@@ -1,5 +1,5 @@
 // Shared base API utilities used by service classes
-const API_BASE_URL = 'http://localhost:80/api';
+const API_BASE_URL = 'http://localhost:8080/api';
 
 export class BaseApi {
     constructor(baseURL = API_BASE_URL) {

@@ -71,7 +71,7 @@ const SideMenu = ({ onNavigate, mode = "desktop", onClose }) => {
             Recipe Rating
           </Link>
           <Link to="/recipe" className="mega-item" onClick={close}>
-          Recipe
+            Recipe
           </Link>
         </div>
 
@@ -335,7 +335,7 @@ const SideMenu = ({ onNavigate, mode = "desktop", onClose }) => {
           }
 
           if (item.type === "group") {
-            
+
             return (
               <div key={`${item.label}-${idx}`} className="mobile-menu-group">
                 <div className="mobile-menu-group-title">{item.label}</div>

@@ -4,16 +4,17 @@ import { UserContext } from "../../context/user.context";
 // Import components
 import BarcodeInputForm from "./components/BarcodeInputForm";
 import { UserAllergenInformation, DetectionResult, BarcodeInformation } from "./components/BarcodeResponse";
+import { ERROR_MESSAGES, validateBarcode } from "../../utils/validationRules";
 
 // Example barcode: 3017624010701
 function ScanBarcode() {
   const { currentUser } = useContext(UserContext);
   const user_id = currentUser?.user_id;
-  
+
   // Access user_id from the context
   const [barcodeInput, setBarcodeInput] = useState('');
   const [showBarcodeInfo, setShowBarcodeInfo] = useState('none');
-  
+
   // Scan result: barcode information
   const [barcodeResult, setBarcodeResult] = useState('');
   const [productName, setProductName] = useState('');
@@ -23,6 +24,8 @@ function ScanBarcode() {
   const [matchingAllergens, setMatchingAllergens] = useState([]);
   // Scan result: user's allergen information
   const [userAllergen, setUserAllergen] = useState([]);
+  const [barcodeError, setBarcodeError] = useState('');
+  const [barcodeTouched, setBarcodeTouched] = useState(false);
 
   const handleFetchResult = (message, toast_function) => {
     toast_function(message, {
@@ -44,8 +47,15 @@ function ScanBarcode() {
   const handleBarcodeScanning = async (e) => {
     e.preventDefault();
 
+    const err = validateBarcode(barcodeInput);
+    if (err) {
+      setBarcodeError(err);
+      setBarcodeTouched(true);
+      return;
+    }
+
     try {
-      const response = await fetch(`http://localhost:80/api/barcode?code=${barcodeInput}`, {
+      const response = await fetch(`http://localhost:8080/api/barcode?code=${barcodeInput}`, {
         method: "POST",
         body: JSON.stringify({ user_id }),
         headers: {
@@ -82,14 +92,24 @@ function ScanBarcode() {
     <div>
       <div className="scan-products-container">
         <h1 className="mt-0 text-left">Enter Barcode Number</h1>
-        <BarcodeInputForm value={barcodeInput} handleOnchange={setBarcodeInput} handleSubmit={handleBarcodeScanning} />
+        <BarcodeInputForm
+          value={barcodeInput}
+          handleOnchange={(val) => {
+            setBarcodeInput(val);
+            setBarcodeError('');
+          }}
+          handleBlur={() => setBarcodeTouched(true)}
+          error={barcodeError}
+          touched={barcodeTouched}
+          handleSubmit={handleBarcodeScanning}
+        />
       </div>
 
       {/* Barcode Information */}
       <div className="scan-products-container" style={{ display: showBarcodeInfo }}>
         {/* Allergen information */}
         <UserAllergenInformation isLoggedIn={user_id != undefined} userAllergen={userAllergen} />
-        
+
         {/* Barcode information */}
         <h1 className="mt-0 text-center">Barcode Information</h1>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
