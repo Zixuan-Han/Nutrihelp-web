@@ -7,7 +7,12 @@ import logoImage from "../../images/logos_black_icon.png";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { useFormValidation } from "../../hooks/useFormValidation";
-import { validateEmail, validatePassword, validatePhone, ERROR_MESSAGES } from "../../utils/validationRules";
+import {
+  validateEmail,
+  validatePassword,
+  validatePhone,
+  ERROR_MESSAGES,
+} from "../../utils/validationRules";
 import FieldError from "../../components/FieldError";
 import { toast } from "react-toastify";
 
@@ -22,12 +27,12 @@ export default function SignUp() {
       options: {
         redirectTo: `${window.location.origin}/auth/callback?mode=signup`,
       },
-    })
+    });
 
     if (error) {
-      setServerError(error.message)
+      setServerError(error.message);
     }
-  }
+  };
 
   const handleAppleSignup = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
@@ -35,12 +40,12 @@ export default function SignUp() {
       options: {
         redirectTo: `${window.location.origin}/auth/callback?mode=signup`,
       },
-    })
+    });
 
     if (error) {
-      setServerError(error.message)
+      setServerError(error.message);
     }
-  }
+  };
 
   const navigate = useNavigate();
   const API_BASE = "http://localhost:8080";
@@ -107,14 +112,60 @@ export default function SignUp() {
         try {
           const data = JSON.parse(text);
 
-          // Map backend errors if they exist
+          // Handles specific known string error cases from the backend for better UX.
+          if (typeof data.error === "string") {
+            if (
+              data.error.toLowerCase().includes("user already exists") ||
+              data.error.toLowerCase().includes("email already")
+            ) {
+              setErrors({
+                email: "An account with this email already exists.",
+              });
+              return;
+            }
+            if (
+              data.error.toLowerCase().includes("weak_password") ||
+              data.error.toLowerCase().includes("weak password")
+            ) {
+              setErrors({
+                password:
+                  "Password is too weak. Please choose a stronger password.",
+              });
+              return;
+            }
+          }
+
+          // Maps the backend errors — supports both { param, msg } and { field, message } formats — to the frontend form fields for better error display...
           if (data.errors && Array.isArray(data.errors)) {
             const fieldErrors = {};
-            data.errors.forEach(err => {
-              if (err.param === 'email') fieldErrors.email = err.msg;
-              if (err.param === 'password') fieldErrors.password = err.msg;
-              // Add more mappings as needed
+            data.errors.forEach((err) => {
+              // This Supports both the { param, msg } and { field, message } formats.
+              const rawField = err.param || err.path || err.field;
+              const errMsg = err.msg || err.message;
+
+              if (rawField === "email") fieldErrors.email = errMsg;
+              if (rawField === "password") {
+                if (errMsg && errMsg.toLowerCase().includes("weak")) {
+                  fieldErrors.password =
+                    "Password is too weak. Please choose a stronger password.";
+                } else {
+                  fieldErrors.password = errMsg;
+                }
+              }
+              if (rawField === "contact_number" || rawField === "phone") {
+                fieldErrors.phone = errMsg;
+              }
+              if (rawField === "name") {
+                // here the name maps to firstName / lastName on the frontend.
+                fieldErrors.firstName = fieldErrors.firstName ?? errMsg;
+                fieldErrors.lastName = fieldErrors.lastName ?? errMsg;
+              }
+              if (rawField === "address") {
+                // This address is a hidden placeholder field — show as general server error since user can't correct it.
+                msg = errMsg || msg;
+              }
             });
+
             if (Object.keys(fieldErrors).length > 0) {
               setErrors(fieldErrors);
               return;
@@ -125,18 +176,22 @@ export default function SignUp() {
         } catch {
           if (text) msg = text;
         }
-        throw new Error(msg);
+        // Here The Unknown or server errors shown as form-level general error since they are not tied to specific fields.
+        setServerError(msg);
+        return;
       }
 
       if (res.status === 201 || res.status === 200) {
-        toast.success("Account created successfully. Please login to continue.");
+        toast.success(
+          "Account created successfully. Please login to continue.",
+        );
         navigate("/login");
         return;
       }
 
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || `Sign up failed (HTTP ${res.status})`);
-    }
+    },
   );
 
   const styles = {
@@ -232,7 +287,8 @@ export default function SignUp() {
       width: "100%",
       padding: "12px 16px",
       borderRadius: "8px",
-      border: errors[name] && touched[name] ? "2px solid red" : "2px solid black",
+      border:
+        errors[name] && touched[name] ? "2px solid red" : "2px solid black",
       fontSize: "15px",
       backgroundColor: "transparent",
       color: "#000",
@@ -372,7 +428,8 @@ export default function SignUp() {
 
           <h1 style={styles.heading}>Create Your NutriHelp Account</h1>
           <p style={styles.subtitle}>
-            Start your personalized health journey with smart nutrition insights and wellness tracking.
+            Start your personalized health journey with smart nutrition insights
+            and wellness tracking.
           </p>
 
           <form onSubmit={submit}>
@@ -388,7 +445,10 @@ export default function SignUp() {
                   onBlur={handleBlur}
                   value={form.firstName}
                 />
-                <FieldError error={errors.firstName} touched={touched.firstName} />
+                <FieldError
+                  error={errors.firstName}
+                  touched={touched.firstName}
+                />
               </div>
 
               <div style={styles.field}>
@@ -401,7 +461,10 @@ export default function SignUp() {
                   onBlur={handleBlur}
                   value={form.lastName}
                 />
-                <FieldError error={errors.lastName} touched={touched.lastName} />
+                <FieldError
+                  error={errors.lastName}
+                  touched={touched.lastName}
+                />
               </div>
             </div>
 
@@ -456,7 +519,10 @@ export default function SignUp() {
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
-                <FieldError error={errors.password} touched={touched.password} />
+                <FieldError
+                  error={errors.password}
+                  touched={touched.password}
+                />
               </div>
 
               <div style={styles.field}>
@@ -474,27 +540,41 @@ export default function SignUp() {
                   <button
                     type="button"
                     style={styles.passwordToggle}
-                    onClick={() =>
-                      setShowConfirmPassword(!showConfirmPassword)
-                    }
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
-                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    {showConfirmPassword ? (
+                      <EyeOff size={20} />
+                    ) : (
+                      <Eye size={20} />
+                    )}
                   </button>
                 </div>
-                <FieldError error={errors.confirmPassword} touched={touched.confirmPassword} />
+                <FieldError
+                  error={errors.confirmPassword}
+                  touched={touched.confirmPassword}
+                />
               </div>
             </div>
 
-            {serverError && <p style={{ ...styles.error, marginTop: 8 }}>{serverError}</p>}
+            {serverError && (
+              <p style={{ ...styles.error, marginTop: 8 }}>{serverError}</p>
+            )}
 
-            <button type="submit" style={{ ...styles.mainBtn, opacity: loading ? 0.8 : 1 }} disabled={loading}>
+            <button
+              type="submit"
+              style={{ ...styles.mainBtn, opacity: loading ? 0.8 : 1 }}
+              disabled={loading}
+            >
               {loading ? "Creating account..." : "Create Account"}
             </button>
           </form>
 
           <p style={{ marginTop: "14px", textAlign: "center" }}>
             Already have an account?
-            <a href="/login" style={{ textDecoration: "underline", marginLeft: "4px" }}>
+            <a
+              href="/login"
+              style={{ textDecoration: "underline", marginLeft: "4px" }}
+            >
               Login
             </a>
           </p>
@@ -522,7 +602,13 @@ export default function SignUp() {
               className="social-btn"
               onClick={handleGoogleSignup}
             >
-              <span style={{ fontSize: "18px", display: "flex", alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: "18px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="24"
@@ -531,35 +617,19 @@ export default function SignUp() {
                 >
                   <path
                     fill="#FFC107"
-                    d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8
-                    c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12
-                    c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657
-                    C34.046,6.053,29.268,4,24,4
-                    C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20
-                    c11.045,0,20-8.955,20-20
-                    C44,22.659,43.862,21.35,43.611,20.083z"
+                    d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
                   />
                   <path
                     fill="#FF3D00"
-                    d="M6.306,14.691l6.571,4.819
-                    C14.655,15.108,18.961,12,24,12
-                    c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657
-                    C34.046,6.053,29.268,4,24,4
-                    C16.318,4,9.656,8.337,6.306,14.691z"
+                    d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
                   />
                   <path
                     fill="#4CAF50"
-                    d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238
-                    C29.211,35.091,26.715,36,24,36
-                    c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025
-                    C9.505,39.556,16.227,44,24,44z"
+                    d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
                   />
                   <path
                     fill="#1976D2"
-                    d="M43.611,20.083H42V20H24v8h11.303
-                    c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238
-                    C36.971,39.205,44,34,44,24
-                    C44,22.659,43.862,21.35,43.611,20.083z"
+                    d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
                   />
                 </svg>
               </span>
@@ -571,34 +641,23 @@ export default function SignUp() {
               className="social-btn"
               onClick={handleAppleSignup}
             >
-              <span style={{ fontSize: "18px", display: "flex", alignItems: "center" }}>
+              <span
+                style={{
+                  fontSize: "18px",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="24"
                   height="24"
                   viewBox="0 0 50 50"
                 >
-                  <path d="M44.527344 34.75
-                    C43.449219 37.144531 42.929688 38.214844 41.542969 40.328125
-                    C39.601563 43.28125 36.863281 46.96875 33.480469 46.992188
-                    C30.46875 47.019531 29.691406 45.027344 25.601563 45.0625
-                    C21.515625 45.082031 20.664063 47.03125 17.648438 47
-                    C14.261719 46.96875 11.671875 43.648438 9.730469 40.699219
-                    C4.300781 32.429688 3.726563 22.734375 7.082031 17.578125
-                    C9.457031 13.921875 13.210938 11.773438 16.738281 11.773438
-                    C20.332031 11.773438 22.589844 13.746094 25.558594 13.746094
-                    C28.441406 13.746094 30.195313 11.769531 34.351563 11.769531
-                    C37.492188 11.769531 40.8125 13.480469 43.1875 16.433594
-                    C35.421875 20.691406 36.683594 31.78125 44.527344 34.75 Z
-                    M31.195313 8.46875
-                    C32.707031 6.527344 33.855469 3.789063 33.4375 1
-                    C30.972656 1.167969 28.089844 2.742188 26.40625 4.78125
-                    C24.878906 6.640625 23.613281 9.398438 24.105469 12.066406
-                    C26.796875 12.152344 29.582031 10.546875 31.195313 8.46875 Z" />
+                  <path d="M44.527344 34.75C43.449219 37.144531 42.929688 38.214844 41.542969 40.328125C39.601563 43.28125 36.863281 46.96875 33.480469 46.992188C30.46875 47.019531 29.691406 45.027344 25.601563 45.0625C21.515625 45.082031 20.664063 47.03125 17.648438 47C14.261719 46.96875 11.671875 43.648438 9.730469 40.699219C4.300781 32.429688 3.726563 22.734375 7.082031 17.578125C9.457031 13.921875 13.210938 11.773438 16.738281 11.773438C20.332031 11.773438 22.589844 13.746094 25.558594 13.746094C28.441406 13.746094 30.195313 11.769531 34.351563 11.769531C37.492188 11.769531 40.8125 13.480469 43.1875 16.433594C35.421875 20.691406 36.683594 31.78125 44.527344 34.75ZM31.195313 8.46875C32.707031 6.527344 33.855469 3.789063 33.4375 1C30.972656 1.167969 28.089844 2.742188 26.40625 4.78125C24.878906 6.640625 23.613281 9.398438 24.105469 12.066406C26.796875 12.152344 29.582031 10.546875 31.195313 8.46875Z" />
                 </svg>
               </span>
             </button>
-
           </div>
         </div>
       </div>
