@@ -159,6 +159,7 @@ export default function ObesityPredict() {
     }
 
     try {
+      // TODO: confirm final enum/value mapping for FAVC, CAEC, and CALC with AI/FE.
       // map formData to backend format
       const payload = {
         Gender: formData.gender,
@@ -180,7 +181,7 @@ export default function ObesityPredict() {
       };
 
       const response = await fetch(
-        "http://localhost:8000/ai-model/medical-report/retrieve",
+        "http://localhost:8080/api/medical-report/retrieve",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -192,6 +193,7 @@ export default function ObesityPredict() {
 
       const result = await response.json();
       localStorage.setItem("ObesityResult", JSON.stringify(result));
+      localStorage.setItem("ObesitySurveyData", JSON.stringify(payload));
       toast.success("Survey submitted successfully!");
       navigate("/survey/result");
     } catch (err) {

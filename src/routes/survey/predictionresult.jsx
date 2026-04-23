@@ -6,8 +6,11 @@ import "./predictionresult.css";
 export default function ObesityResult() {
   const [result, setResult] = useState(null);
   const resultRef = useRef(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [fitnessChoice, setFitnessChoice] = useState(null); // "yes" | "no" | null
+  const [fitnessChoice, setFitnessChoice] = useState(null);
+  const [targetWeight, setTargetWeight] = useState("");
+  const [daysPerWeek, setDaysPerWeek] = useState("");
+  const [workoutPlace, setWorkoutPlace] = useState("Home");
+  const [isSubmittingPlan, setIsSubmittingPlan] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,6 +36,66 @@ export default function ObesityResult() {
     navigator.clipboard.writeText(url).then(() => {
       alert("🔗 Link copied to clipboard!");
     });
+  };
+
+  const handleStartJourney = async () => {
+    if (targetWeight === "" || daysPerWeek === "" || workoutPlace === "") {
+      alert("Please complete all follow-up fields.");
+      return;
+    }
+
+    const daysValue = Number(daysPerWeek);
+    if (Number.isNaN(daysValue) || daysValue < 0 || daysValue > 7) {
+      alert("days_per_week is required and must be between 0 and 7.");
+      return;
+    }
+
+    const storedSurveyData = localStorage.getItem("ObesitySurveyData");
+    if (!storedSurveyData) {
+      alert("Survey data is missing. Please complete the survey again.");
+      return;
+    }
+
+    try {
+      const parsedSurveyData = JSON.parse(storedSurveyData);
+
+      const payload = {
+        medical_report: result,
+        survey_data: {
+          Gender: parsedSurveyData.Gender,
+          Age: parsedSurveyData.Age,
+          Height: parsedSurveyData.Height,
+          Weight: parsedSurveyData.Weight,
+          days_per_week: daysValue,
+          target_weight: Number(targetWeight),
+          workout_place: workoutPlace.toLowerCase(),
+        },
+      };
+
+      setIsSubmittingPlan(true);
+
+      const response = await fetch(
+        "http://localhost:8080/api/medical-report/plan",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Plan generation failed");
+      }
+
+      const planResult = await response.json();
+      localStorage.setItem("FitnessPlan", JSON.stringify(planResult));
+      navigate("/roadmap");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to generate fitness plan. Please try again later.");
+    } finally {
+      setIsSubmittingPlan(false);
+    }
   };
 
   return (
@@ -100,22 +163,41 @@ export default function ObesityResult() {
             <p>Great! Let’s get started 🚀</p>
             <label>
               1️⃣ What is your target weight?
-              <input type="text" placeholder="(kG)" />
+              <input
+                type="number"
+                placeholder="(kg)"
+                value={targetWeight}
+                onChange={(e) => setTargetWeight(e.target.value)}
+              />
             </label>
             <label>
               2️⃣ How many days a week can you exercise?
-              <input type="number" placeholder="e.g., 3" />
+              <input
+                type="number"
+                min="0"
+                max="7"
+                placeholder="e.g., 4"
+                value={daysPerWeek}
+                onChange={(e) => setDaysPerWeek(e.target.value)}
+              />
             </label>
             <label>
               3️⃣ Do you prefer home workouts or gym?
-              <select>
-                <option>Home</option>
-                <option>Gym</option>
-                <option>Both</option>
+              <select
+                value={workoutPlace}
+                onChange={(e) => setWorkoutPlace(e.target.value)}
+              >
+                <option value="Home">Home</option>
+                <option value="Gym">Gym</option>
+                <option value="Both">Both</option>
               </select>
             </label>
-            <button className="start-btn" onClick={() => navigate("/roadmap")}>
-              🚀 Start Journey
+            <button
+              className="start-btn"
+              onClick={handleStartJourney}
+              disabled={isSubmittingPlan}
+            >
+              {isSubmittingPlan ? "Generating Plan..." : "🚀 Start Journey"}
             </button>
           </div>
         )}
