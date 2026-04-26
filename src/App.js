@@ -89,6 +89,16 @@ function GlobalAuthenticatedLayout() {
   );
 }
 
+function CanonicalMealRedirect() {
+  const location = useLocation();
+  return (
+    <Navigate
+      to={`${location.pathname.toLowerCase()}${location.search}${location.hash}`}
+      replace
+    />
+  );
+}
+
 import WeeklyMealPlanPage from './routes/Meal/WeeklyMealPlanPage';
 
 function App() {
@@ -140,7 +150,7 @@ function App() {
         <Route path="/roadmap" element={<FitnessRoadmap />} />
         <Route path="/Scan" element={<Scan />} />
         <Route path="/scan" element={<Scan />} />
-        <Route path="/Meal" element={<Meal />} />
+        <Route caseSensitive path="/Meal/*" element={<CanonicalMealRedirect />} />
         <Route
           path="/dish/detail"
           element={
@@ -302,6 +312,14 @@ function App() {
         />
         <Route
           path="/meal"
+          element={
+            <AuthenticateRoute>
+              <Meal />
+            </AuthenticateRoute>
+          }
+        />
+        <Route
+          path="/meal/:preselectedMealType"
           element={
             <AuthenticateRoute>
               <Meal />

@@ -1,7 +1,7 @@
 import "./Meal.css";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   BarChart3,
   Check,
@@ -513,6 +513,53 @@ function normalizeMealType(value) {
   return "others";
 }
 
+function parseRequestedMealFilter(value) {
+  const normalized = normalize(value);
+  if (normalized === "breakfast" || normalized === "lunch" || normalized === "dinner" || normalized === "others") {
+    return normalized;
+  }
+  if (normalized === "snack" || normalized === "snacks" || normalized === "other") return "others";
+  return null;
+}
+
+function resolveInitialMealFilter(location, routeMealType) {
+  const routeRequestedType = parseRequestedMealFilter(routeMealType);
+  if (routeRequestedType) return routeRequestedType;
+
+  if (!location) return null;
+
+  const stateMealType =
+    location.state?.defaultMealType ||
+    location.state?.mealType ||
+    location.state?.activeFilter;
+
+  if (stateMealType) {
+    const parsedFromState = parseRequestedMealFilter(stateMealType);
+    if (parsedFromState) return parsedFromState;
+  }
+
+  const searchParams = new URLSearchParams(location.search || "");
+  const queryMealType = searchParams.get("mealType") || searchParams.get("tab");
+  return parseRequestedMealFilter(queryMealType);
+}
+
+function isISODateString(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
+}
+
+function resolveInitialPlanDate(location) {
+  if (!location) return null;
+
+  const stateDate = location.state?.planDate || location.state?.selectedDate || location.state?.targetDate;
+  if (isISODateString(stateDate)) return stateDate;
+
+  const searchParams = new URLSearchParams(location.search || "");
+  const queryDate = searchParams.get("date") || searchParams.get("planDate");
+  if (isISODateString(queryDate)) return queryDate;
+
+  return null;
+}
+
 function getMealIdentityKey(meal, fallback = "") {
   const recipeIdKey = normalize(meal?.recipeId);
   if (recipeIdKey && recipeIdKey !== "null") return `recipe:${recipeIdKey}`;
@@ -597,15 +644,19 @@ function estimateMealNutrition(meal) {
 }
 
 const Meal = () => {
+  const { preselectedMealType } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [todayISO, setTodayISO] = useState(() => getTodayISO());
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState(
+    () => resolveInitialMealFilter(location, preselectedMealType) || "all",
+  );
   const [query, setQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [gridColumns, setGridColumns] = useState(() => getMealGridColumns());
   const [widgetFabBottom, setWidgetFabBottom] = useState(DEFAULT_WIDGET_BOTTOM);
   const [isWidgetMenuOpen, setIsWidgetMenuOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(() => getTodayISO());
+  const [selectedDate, setSelectedDate] = useState(() => resolveInitialPlanDate(location) || getTodayISO());
   const dateInputRef = useRef(null);
   const searchWrapRef = useRef(null);
   const widgetFabRef = useRef(null);
@@ -620,6 +671,24 @@ const Meal = () => {
   const [mealSelectionsByDate, setMealSelectionsByDate] = useState(() =>
     normalizeSelectionsByDate(readSelectionsByDateFromStorage()),
   );
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const requestedFilter = resolveInitialMealFilter(location, preselectedMealType);
+    if (requestedFilter) {
+      setActiveFilter(requestedFilter);
+    }
+  }, [preselectedMealType, location.key, location.search]);
+
+  useEffect(() => {
+    const requestedDate = resolveInitialPlanDate(location);
+    if (requestedDate && requestedDate !== selectedDate) {
+      setSelectedDate(requestedDate);
+    }
+  }, [selectedDate, location.key, location.search]);
 
   const normalizedQuery = normalize(query);
 
