@@ -93,6 +93,60 @@
     }
   }
 
+  const mapProfilePayloadToForm = (payload, fallbackEmail = "") => {
+    const profile =
+      payload && typeof payload === "object" && payload.profile && typeof payload.profile === "object"
+        ? payload.profile
+        : Array.isArray(payload)
+        ? payload[0] || {}
+        : payload || {}
+
+    return {
+      firstName: profile.firstName || profile.first_name || "",
+      lastName: profile.lastName || profile.last_name || "",
+      email: profile.email || fallbackEmail || "",
+      phone: profile.contactNumber || profile.contact_number || "",
+      goals: [],
+      avatar: profile.imageUrl || profile.image_url ? { url: profile.imageUrl || profile.image_url } : null,
+    }
+  }
+
+  const fileToDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "")
+      reader.onerror = () => reject(new Error("Unable to read the selected image"))
+      reader.readAsDataURL(file)
+    })
+
+  const syncStoredUserSession = (profile, setCurrentUser) => {
+    try {
+      const raw = localStorage.getItem("user_session")
+      const session = raw ? JSON.parse(raw) : {}
+      const nextSession = {
+        ...session,
+        id: profile.id || session.id,
+        user_id: profile.id || session.user_id,
+        email: profile.email || session.email,
+        first_name: profile.firstName || session.first_name,
+        last_name: profile.lastName || session.last_name,
+        name: profile.username || profile.fullName || session.name,
+        image_url: profile.imageUrl || session.image_url,
+      }
+
+      localStorage.setItem("user_session", JSON.stringify(nextSession))
+
+      if (typeof setCurrentUser === "function") {
+        setCurrentUser((prev) => ({
+          ...(prev || {}),
+          ...nextSession,
+        }))
+      }
+    } catch (_error) {
+      // Ignore session sync issues; the profile save already succeeded.
+    }
+  }
+
   const parseApiError = async (response, fallback) => {
     if (!response) return fallback
     try {
@@ -627,6 +681,7 @@ const getRadioInnerStyles = (checked) => ({
   export default function UserAccountPage() {
     const [width, setWidth] = useState(typeof window !== "undefined" ? window.innerWidth : 1024)
     const [form, setForm] = useState(INITIAL_FORM)
+    const [isSaving, setIsSaving] = useState(false)
     const [preferences, setPreferences] = useState(EMPTY_PREFERENCES)
     const [preferencesLoading, setPreferencesLoading] = useState(true)
     const [preferencesError, setPreferencesError] = useState("")
@@ -691,16 +746,10 @@ const getRadioInnerStyles = (checked) => ({
       }
 
       const data = await res.json()
-      const profile = Array.isArray(data) ? data[0] : data
 
       setForm((prev) => ({
         ...prev,
-        firstName: profile.first_name || "",
-        lastName: profile.last_name || "",
-        email: profile.email || session.email,
-        phone: profile.contact_number || "",
-        goals: profile.goals ? [profile.goals] : [],
-        avatar: profile.image_url ? { url: profile.image_url } : null,
+        ...mapProfilePayloadToForm(data, session.email),
       }))
 
     } catch (err) {
@@ -803,12 +852,68 @@ const getRadioInnerStyles = (checked) => ({
       set("avatar", { file, url: URL.createObjectURL(file) })
     }
 
-    const handleSaveChanges = () => {
+    const handleSaveChanges = async () => {
       mark("firstName")
       mark("email")
       mark("phone")
-      if (Object.keys(errors).length === 0) {
-        toast.success("Profile changes saved.")
+
+      const validationErrors = {}
+      if (!form.firstName?.trim()) validationErrors.firstName = "Required"
+      if (!emailOk(form.email)) validationErrors.email = "Invalid email"
+      if (!phoneOk(form.phone)) validationErrors.phone = "Invalid phone"
+
+      if (Object.keys(validationErrors).length === 0) {
+        if (!authToken) {
+          toast.error("Please sign in again before saving your profile.")
+          return
+        }
+
+        setIsSaving(true)
+
+        try {
+          const payload = {
+            firstName: form.firstName.trim(),
+            lastName: form.lastName.trim(),
+            email: form.email.trim(),
+            contactNumber: form.phone.replace(/\s/g, ""),
+          }
+
+          if (form.avatar?.file) {
+            payload.userImage = await fileToDataUrl(form.avatar.file)
+          }
+
+          const res = await fetchWithRetry(`${API_BASE}/api/profile`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify(payload),
+          })
+
+          if (!res.ok) {
+            const reason = await parseApiError(res, "Unable to save your profile right now.")
+            throw new Error(reason)
+          }
+
+          const data = await res.json()
+          const nextForm = mapProfilePayloadToForm(data, form.email)
+          setForm((prev) => ({
+            ...prev,
+            ...nextForm,
+            goals: prev.goals,
+          }))
+
+          if (data?.profile) {
+            syncStoredUserSession(data.profile, setCurrentUser)
+          }
+
+          toast.success("Profile changes saved.")
+        } catch (error) {
+          toast.error(error?.message || "Unable to save your profile right now.")
+        } finally {
+          setIsSaving(false)
+        }
       }
     }
 
@@ -821,6 +926,7 @@ const getRadioInnerStyles = (checked) => ({
 
       localStorage.removeItem("auth_token")
       localStorage.removeItem("jwt_token")
+      localStorage.removeItem("sso_session")
       localStorage.removeItem("user_session")
 
       if (typeof logOut === "function") {
@@ -939,12 +1045,17 @@ const getRadioInnerStyles = (checked) => ({
               </div>
 
               <button
-                style={hoveredButton === "save" ? getButtonHoverStyles(width) : getButtonStyles(width)}
+                style={{
+                  ...(hoveredButton === "save" ? getButtonHoverStyles(width) : getButtonStyles(width)),
+                  opacity: isSaving ? 0.7 : 1,
+                  cursor: isSaving ? "wait" : "pointer",
+                }}
                 onMouseEnter={() => setHoveredButton("save")}
                 onMouseLeave={() => setHoveredButton(null)}
                 onClick={handleSaveChanges}
+                disabled={isSaving}
               >
-                Save Changes
+                {isSaving ? "Saving..." : "Save Changes"}
               </button>
             </section>
 
