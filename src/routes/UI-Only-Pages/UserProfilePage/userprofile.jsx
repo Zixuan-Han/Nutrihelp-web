@@ -926,6 +926,7 @@ const getRadioInnerStyles = (checked) => ({
 
       localStorage.removeItem("auth_token")
       localStorage.removeItem("jwt_token")
+      localStorage.removeItem("sso_session")
       localStorage.removeItem("user_session")
 
       if (typeof logOut === "function") {
