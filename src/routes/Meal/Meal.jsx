@@ -677,6 +677,9 @@ const Meal = () => {
     normalizeSelectionsByDate(readSelectionsByDateFromStorage()),
   );
 
+  const [activeTab, setActiveTab] = useState('addMeal');
+  const [planFilters, setPlanFilters] = useState(null);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname, location.search]);
