@@ -3,6 +3,7 @@ import "semantic-ui-css/semantic.min.css";
 import "./App.css";
 import { initializeFontSize } from "./utils/fontSizeManager";
 import "./styles/global-dark-mode.css";
+import "./styles/root-style-system.css";
 
 import {
   BrowserRouter as Router,
@@ -88,6 +89,16 @@ function GlobalAuthenticatedLayout() {
   );
 }
 
+function CanonicalMealRedirect() {
+  const location = useLocation();
+  return (
+    <Navigate
+      to={`${location.pathname.toLowerCase()}${location.search}${location.hash}`}
+      replace
+    />
+  );
+}
+
 import WeeklyMealPlanPage from './routes/Meal/WeeklyMealPlanPage';
 
 function App() {
@@ -138,7 +149,8 @@ function App() {
         <Route path="/survey/result" element={<Predictionresult />} />
         <Route path="/roadmap" element={<FitnessRoadmap />} />
         <Route path="/Scan" element={<Scan />} />
-        <Route path="/Meal" element={<Meal />} />
+        <Route path="/scan" element={<Scan />} />
+        <Route caseSensitive path="/Meal/*" element={<CanonicalMealRedirect />} />
         <Route
           path="/dish/detail"
           element={
@@ -212,7 +224,7 @@ function App() {
         />
 
         <Route
-          path="Appointment"
+          path="appointment"
           element={
             <AuthenticateRoute>
               <Appointment />
@@ -221,7 +233,7 @@ function App() {
         />
 
         <Route
-          path="dietaryRequirements"
+          path="dietary-requirements"
           element={
             <AuthenticateRoute>
               <DietaryRequirements />
@@ -230,7 +242,7 @@ function App() {
         />
 
         <Route
-          path="ScanProducts"
+          path="scan-products"
           element={
             <AuthenticateRoute>
               <ScanProducts />
@@ -255,7 +267,7 @@ function App() {
         />
 
         <Route
-          path="RecipeRating"
+          path="recipe-rating"
           element={
             <AuthenticateRoute>
               <RecipeRating />
@@ -264,7 +276,7 @@ function App() {
         />
 
         <Route
-          path="UiTimer"
+          path="ui-timer"
           element={
             <AuthenticateRoute>
               <UiTimer />
@@ -299,7 +311,15 @@ function App() {
           }
         />
         <Route
-          path="Meal"
+          path="/meal"
+          element={
+            <AuthenticateRoute>
+              <Meal />
+            </AuthenticateRoute>
+          }
+        />
+        <Route
+          path="/meal/:preselectedMealType"
           element={
             <AuthenticateRoute>
               <Meal />
@@ -396,7 +416,7 @@ function App() {
         />
 
         <Route path="ScanBarcode" element={<ScanBarcode />} />
-        <Route path="Scan" element={<Scan />}/>
+        <Route path="scan" element={<Scan />}/>
       </Routes>
     </Router>
   );
