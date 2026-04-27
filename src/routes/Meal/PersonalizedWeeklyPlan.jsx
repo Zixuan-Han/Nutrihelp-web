@@ -1,5 +1,6 @@
 // src/routes/Meal/PersonalizedWeeklyPlan.jsx
 import { useEffect, useState } from 'react';
+import './PersonalizedPlan.css';
 
 const AI_ENDPOINT       = 'http://localhost/api/meal-plan/ai-generate';
 const FEEDBACK_ENDPOINT = (planId) => `http://localhost/api/meal-plan/feedback/${planId}`;
