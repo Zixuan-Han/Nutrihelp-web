@@ -4,6 +4,7 @@ import "./ChatPage.css";
 
 /* ---------------- Config ---------------- */
 const AI_BASE_URL = "http://localhost:8000";
+const CHAT_ENDPOINT = `${AI_BASE_URL}/ai-model/chatbot/chat`;
 
 /* ---------------- Utils ---------------- */
 
@@ -25,7 +26,6 @@ export default function ChatPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [useRag, setUseRag] = useState(false);
   const messagesRef = useRef(null);
 
   const navLinks = useMemo(
@@ -81,11 +81,7 @@ export default function ChatPage() {
   }, []);
 
   async function callChatbot(userMessage) {
-    const endpoint = useRag
-      ? `${AI_BASE_URL}/ai-model/chatbot/chat_with_rag`
-      : `${AI_BASE_URL}/ai-model/chatbot/chat`;
-
-    const response = await fetch(endpoint, {
+    const response = await fetch(CHAT_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: userMessage }),
@@ -234,16 +230,8 @@ export default function ChatPage() {
       {/* ---------- Chat ---------- */}
       <main className="nh-app">
         <section className="nh-chatCard">
-          <div className="nh-chatHeader" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-            <h2 style={{ margin: 0 }}>NutriHelp Assistant</h2>
-            <label style={{ fontSize: "0.8rem", cursor: "pointer", color: "#666", display: "flex", alignItems: "center", gap: "6px" }}>
-              <input
-                type="checkbox"
-                checked={useRag}
-                onChange={(e) => setUseRag(e.target.checked)}
-              />
-              Use knowledge base (RAG)
-            </label>
+          <div className="nh-chatHeader">
+            <h2 className="nh-chatTitle">NutriHelp Assistant</h2>
           </div>
 
           <div className="nh-messages" ref={messagesRef}>
