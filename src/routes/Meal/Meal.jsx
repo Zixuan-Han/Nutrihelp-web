@@ -12,11 +12,16 @@ import {
   Search,
   Settings2,
   ShoppingCart,
+  Sparkles,
   Trash2,
   Users,
 } from "lucide-react";
 import { fetchDishImage } from "../../services/dishImageApi";
 import { readScanLogEntries, SCAN_LOG_UPDATED_EVENT } from "../../utils/scanLogStorage";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import PersonalizedPlanForm from "./PersonalizedPlanForm";
+import PersonalizedWeeklyPlan from "./PersonalizedWeeklyPlan";
 
 const FILTERS = [
   { key: "breakfast", label: "Breakfast" },
@@ -1044,6 +1049,9 @@ const Meal = () => {
     readScanLogEntries().map((entry, index) => mapScanLogEntryToMeal(entry, index)),
   );
 
+  const [activeTab, setActiveTab] = useState('addMeal');
+  const [planFilters, setPlanFilters] = useState(null);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname, location.search]);
@@ -1700,6 +1708,23 @@ const Meal = () => {
     });
   };
 
+  const handleGeneratePlan = (filters) => {
+    setPlanFilters(filters);
+  };
+
+  const handleExportPDF = () => {
+    const printArea = document.getElementById('personalized-meal-plan');
+    if (!printArea) return;
+    html2canvas(printArea, { scale: 2 }).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      pdf.save('Personalized_Meal_Plan.pdf');
+    });
+  };
+
   const selectedCount = selectedMeals.length;
   const selectedViewCount = SELECTED_VIEW_SECTIONS.reduce(
     (total, section) => total + selectedMealGroups[section.key].length,
@@ -1728,6 +1753,25 @@ const Meal = () => {
           <span className="crumb-current">Add Meal</span>
         </div>
 
+        <div className="meal-tab-switcher">
+          <button
+            type="button"
+            className={`meal-tab-btn ${activeTab === 'addMeal' ? 'active' : ''}`}
+            onClick={() => setActiveTab('addMeal')}
+          >
+            Add Meal
+          </button>
+          <button
+            type="button"
+            className={`meal-tab-btn ${activeTab === 'personalizedPlan' ? 'active' : ''}`}
+            onClick={() => setActiveTab('personalizedPlan')}
+          >
+            <Sparkles size={15} />
+            AI Personalized Plan
+          </button>
+        </div>
+
+        {activeTab === 'addMeal' && (<>
         <div className="add-meal-toolbar">
           <div className="add-meal-date-row" aria-label="Plan date controls">
             <button
@@ -2359,6 +2403,24 @@ const Meal = () => {
             </div>
           </aside>
         </div>
+        </>)}
+
+        {activeTab === 'personalizedPlan' && (
+          <div className="personalized-plan-section">
+            <PersonalizedPlanForm
+              onGenerate={handleGeneratePlan}
+              onExport={planFilters ? handleExportPDF : undefined}
+              loading={false}
+            />
+            {planFilters && (
+              <PersonalizedWeeklyPlan
+                filters={planFilters}
+                onExport={handleExportPDF}
+                showExport={true}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       <div

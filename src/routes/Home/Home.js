@@ -109,7 +109,7 @@ const Home = () => {
       return;
     }
 
-    fetch("http://localhost:8080/api/contactus", {
+    fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8081'}/api/contactus`, {
       method: "POST",
       body: JSON.stringify(formData),
       headers: {
@@ -144,7 +144,7 @@ const Home = () => {
       return;
     }
 
-    fetch("http://localhost:8080/api/home/subscribe", {
+    fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8081'}/api/home/subscribe`, {
       method: "POST",
       body: JSON.stringify({ email: subscriptEmail }),
       headers: {
